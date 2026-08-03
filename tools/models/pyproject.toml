@@ -1,0 +1,12 @@
+[project]
+name = "moca-model-tools"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["openvino==2026.0.0", "ultralytics==8.3.171"]
+[project.optional-dependencies]
+dev = ["pytest==8.4.1"]
+[project.scripts]
+moca-models = "moca_models.cli:main"
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"

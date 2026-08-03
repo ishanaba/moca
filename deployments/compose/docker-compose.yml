@@ -1,0 +1,12 @@
+services:
+  tracker:
+    build:
+      context: ../..
+      dockerfile: services/tracker/Dockerfile
+    command: ["--source", "replay"]
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/dri:/dev/dri
+    volumes:
+      - ../../models:/models:ro
+      - ../../calibration:/calibration:ro

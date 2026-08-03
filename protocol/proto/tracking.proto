@@ -1,0 +1,29 @@
+syntax = "proto3";
+package moca.protocol.v2;
+
+message FrameSize { uint32 width = 1; uint32 height = 2; }
+message Keypoint { float x = 1; float y = 2; float confidence = 3; }
+message Person { uint32 id = 1; float confidence = 2; repeated Keypoint keypoints = 3; }
+message Hand {
+  optional uint32 person_id = 1;
+  float confidence = 2;
+  Keypoint center = 3;
+  repeated Keypoint landmarks = 4;
+  string source = 5;
+  uint32 id = 6;
+}
+message TrackingFrame {
+  uint32 version = 1;
+  uint64 capture_time_us = 2;
+  uint64 inference_end_time_us = 3;
+  string source = 4;
+  FrameSize frame = 5;
+  repeated Person persons = 6;
+  repeated Hand hands = 7;
+}
+message ClientHello { repeated uint32 supported_versions = 1; }
+message ServerHello { uint32 selected_version = 1; uint32 heartbeat_interval_ms = 2; }
+message Error { string code = 1; string message = 2; repeated uint32 supported_versions = 3; }
+message Heartbeat { uint64 monotonic_time_us = 1; }
+message CameraFrame { uint64 capture_time_us = 1; uint32 width = 2; uint32 height = 3; bytes jpeg_data = 4; }
+message Envelope { oneof payload { ClientHello client_hello = 1; ServerHello server_hello = 2; TrackingFrame tracking_frame = 3; Error error = 4; Heartbeat heartbeat = 5; CameraFrame camera_frame = 6; } }

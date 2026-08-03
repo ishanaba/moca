@@ -1,0 +1,1 @@
+{"FileVersion":3,"Version":1,"VersionName":"0.1.0","FriendlyName":"Moca Tracking","Description":"Engine-independent Motion Playground tracking client.","Category":"Input","CanContainContent":false,"Modules":[{"Name":"MocaTracking","Type":"Runtime","LoadingPhase":"Default"}]}

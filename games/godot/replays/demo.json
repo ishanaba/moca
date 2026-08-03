@@ -1,0 +1,13 @@
+{
+  "duration_ms": 4000,
+  "frames": [
+    {"time_ms": 0, "players": [{"id": 1, "blade": [220, 500]}, {"id": 2, "blade": [1060, 500]}]},
+    {"time_ms": 500, "players": [{"id": 1, "blade": [300, 300]}, {"id": 2, "blade": [980, 260]}]},
+    {"time_ms": 1000, "players": [{"id": 1, "blade": [460, 170]}, {"id": 2, "blade": [820, 190]}]},
+    {"time_ms": 1500, "players": [{"id": 1, "blade": [570, 360]}, {"id": 2, "blade": [710, 390]}]},
+    {"time_ms": 2000, "players": [{"id": 1, "blade": [420, 560]}, {"id": 2, "blade": [860, 540]}]},
+    {"time_ms": 2500, "players": [{"id": 1, "blade": [260, 400]}, {"id": 2, "blade": [1020, 410]}]},
+    {"time_ms": 3000, "players": [{"id": 1, "blade": [380, 210]}, {"id": 2, "blade": [900, 230]}]},
+    {"time_ms": 3500, "players": [{"id": 1, "blade": [540, 440]}, {"id": 2, "blade": [740, 450]}]}
+  ]
+}

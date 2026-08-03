@@ -1,0 +1,59 @@
+find_package(Protobuf REQUIRED)
+find_package(Boost 1.74 REQUIRED COMPONENTS system)
+find_package(OpenVINO REQUIRED COMPONENTS Runtime)
+find_package(OpenCV REQUIRED COMPONENTS core highgui imgcodecs imgproc)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(GSTREAMER QUIET IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
+endif()
+if(NOT GSTREAMER_FOUND)
+  find_path(GSTREAMER_INCLUDE_DIR gst/gst.h PATH_SUFFIXES gstreamer-1.0 REQUIRED)
+  find_path(GLIB_INCLUDE_DIR glib.h PATH_SUFFIXES glib-2.0 REQUIRED)
+  find_path(GLIB_CONFIG_INCLUDE_DIR glibconfig.h
+    PATHS /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/glib-2.0/include REQUIRED)
+  find_library(GSTREAMER_LIBRARY gstreamer-1.0 REQUIRED)
+  find_library(GSTBASE_LIBRARY gstbase-1.0 REQUIRED)
+  find_library(GSTAPP_LIBRARY gstapp-1.0 REQUIRED)
+  find_library(GSTVIDEO_LIBRARY gstvideo-1.0 REQUIRED)
+  find_library(GOBJECT_LIBRARY gobject-2.0 REQUIRED)
+  find_library(GLIB_LIBRARY glib-2.0 REQUIRED)
+  add_library(moca_gstreamer INTERFACE)
+  target_include_directories(moca_gstreamer INTERFACE
+    ${GSTREAMER_INCLUDE_DIR} ${GLIB_INCLUDE_DIR} ${GLIB_CONFIG_INCLUDE_DIR})
+  target_link_libraries(moca_gstreamer INTERFACE
+    ${GSTREAMER_LIBRARY} ${GSTBASE_LIBRARY} ${GSTAPP_LIBRARY} ${GSTVIDEO_LIBRARY}
+    ${GOBJECT_LIBRARY} ${GLIB_LIBRARY})
+else()
+  add_library(moca_gstreamer ALIAS PkgConfig::GSTREAMER)
+endif()
+add_library(moca_tracker_core src/gstreamer_capture.cpp src/identity_tracker.cpp
+  src/openvino_yolo_pose.cpp src/wrist_hand_tracker.cpp)
+set_target_properties(moca_tracker_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(moca_tracker_core PUBLIC include)
+target_compile_features(moca_tracker_core PUBLIC cxx_std_20)
+target_compile_options(moca_tracker_core PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(moca_tracker_core PUBLIC moca_gstreamer)
+target_link_libraries(moca_tracker_core PUBLIC openvino::runtime)
+add_executable(moca-tracker src/main.cpp)
+target_link_libraries(moca-tracker PRIVATE moca_tracker_core Boost::system ${OpenCV_LIBS})
+add_executable(moca-core-tests tests/core_tests.cpp)
+target_link_libraries(moca-core-tests PRIVATE moca_tracker_core)
+add_test(NAME moca-core-tests COMMAND moca-core-tests)
+if(Protobuf_FOUND)
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
+  add_library(moca_protocol ../../protocol/proto/tracking.proto)
+  set_target_properties(moca_protocol PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  protobuf_generate(
+    TARGET moca_protocol
+    LANGUAGE cpp
+    APPEND_PATH
+    IMPORT_DIRS ${CMAKE_SOURCE_DIR}/protocol/proto
+    PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated
+  )
+  target_include_directories(moca_protocol PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/generated)
+  target_link_libraries(moca_protocol PUBLIC protobuf::libprotobuf)
+  target_sources(moca-tracker PRIVATE src/websocket_server.cpp)
+  target_link_libraries(moca-tracker PRIVATE moca_protocol)
+else()
+  message(STATUS "Protobuf not found: core builds, protocol generation disabled")
+endif()
