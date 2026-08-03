@@ -13,6 +13,7 @@ const SMOOTH_ALPHA_MIN := 0.22
 const SMOOTH_ALPHA_MAX := 0.82
 const FAST_MOTION_PIXELS := 180.0
 const COLORS := [Color("55d6ff"), Color("ff70d2")]
+const HIT_SOUND_PLAYERS := 4
 
 var scores := [0]
 var elapsed_time := 0.0
@@ -26,11 +27,14 @@ var round_over := false
 var random := RandomNumberGenerator.new()
 var camera_texture: ImageTexture
 var blade_acquired := [false, false]
+var hit_sound_players: Array[AudioStreamPlayer] = []
+var next_hit_sound_player := 0
 
 
 func _ready() -> void:
 	random.seed = 0x4d4f4341
 	_load_record()
+	_create_hit_sound_players()
 	TrackingService.snapshot_updated.connect(_on_snapshot_updated)
 	TrackingService.camera_frame_updated.connect(_on_camera_frame_updated)
 	TrackingService.source_changed.connect(func(_label: String) -> void: queue_redraw())
@@ -127,12 +131,47 @@ func _check_hits() -> void:
 	for target in targets.duplicate():
 		for player_index in blades.size():
 			if GameRulesScript.segment_hits_circle(previous_blades[player_index], blades[player_index], target.position, TARGET_RADIUS + BLADE_RADIUS):
+				if not target.bomb:
+					_play_fruit_hit_sound()
 				scores[0] = GameRulesScript.clamp_score(scores[0] + GameRulesScript.score_for_target(target.bomb))
 				targets.erase(target)
 				if scores[0] >= GameRulesScript.MAX_SCORE:
 					_finish_round()
 					return
 				break
+
+
+func _create_hit_sound_players() -> void:
+	var sound := AudioStreamWAV.new()
+	sound.format = AudioStreamWAV.FORMAT_16_BITS
+	sound.mix_rate = 44100
+	sound.stereo = false
+	var duration := 0.13
+	var sample_count := int(sound.mix_rate * duration)
+	var pcm := PackedByteArray()
+	pcm.resize(sample_count * 2)
+	for sample_index in sample_count:
+		var time := float(sample_index) / float(sound.mix_rate)
+		var envelope := pow(1.0 - time / duration, 2.0)
+		var frequency := lerpf(880.0, 1320.0, time / duration)
+		var sample := sin(TAU * frequency * time) * envelope * 0.32
+		pcm.encode_s16(sample_index * 2, int(sample * 32767.0))
+	sound.data = pcm
+	for index in HIT_SOUND_PLAYERS:
+		var player := AudioStreamPlayer.new()
+		player.name = "FruitHitSound%d" % index
+		player.stream = sound
+		player.volume_db = -4.0
+		add_child(player)
+		hit_sound_players.append(player)
+
+
+func _play_fruit_hit_sound() -> void:
+	if hit_sound_players.is_empty():
+		return
+	var player := hit_sound_players[next_hit_sound_player]
+	next_hit_sound_player = (next_hit_sound_player + 1) % hit_sound_players.size()
+	player.play()
 
 
 func _finish_round() -> void:
