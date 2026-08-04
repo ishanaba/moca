@@ -47,6 +47,7 @@ var maze_index := 0
 var active_maze_path: Array = []
 var planted_flowers: Array[Vector2] = []
 var spoiled_flowers: Array[Dictionary] = []
+var celebration_flowers: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -104,6 +105,8 @@ func _process(delta: float) -> void:
 	if stage == "bubbles" and target:
 		_check_magic_ball_damage()
 	_update_spoiled_flowers(delta)
+	if stage == "celebration":
+		_update_celebration_flowers(delta)
 	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
@@ -367,6 +370,35 @@ func _update_spoiled_flowers(delta: float) -> void:
 			spoiled_flowers[index] = spoiled
 
 
+func _start_celebration() -> void:
+	celebration_flowers.clear()
+	for index in 58:
+		celebration_flowers.append({
+			"position": Vector2(random.randf_range(20.0, 1260.0), random.randf_range(-720.0, -15.0)),
+			"velocity": Vector2(random.randf_range(-24.0, 24.0), random.randf_range(75.0, 145.0)),
+			"angle": random.randf_range(0.0, TAU),
+			"spin": random.randf_range(-2.2, 2.2),
+			"scale": random.randf_range(0.65, 1.25),
+			"color": Color.from_hsv(fmod(float(index) * 0.137, 1.0), 0.62, 1.0),
+		})
+	_play_tone(660.0, 0.4)
+	_play_tone(830.0, 0.5)
+	_play_tone(990.0, 0.6)
+
+
+func _update_celebration_flowers(delta: float) -> void:
+	for index in celebration_flowers.size():
+		var flower: Dictionary = celebration_flowers[index]
+		var velocity: Vector2 = flower.velocity
+		velocity.x += sin(float(flower.angle) * 1.7) * 7.0 * delta
+		flower.position = Vector2(flower.position) + velocity * delta
+		flower.velocity = velocity
+		flower.angle = float(flower.angle) + float(flower.spin) * delta
+		if Vector2(flower.position).y > 760.0:
+			flower.position = Vector2(random.randf_range(20.0, 1260.0), random.randf_range(-180.0, -30.0))
+		celebration_flowers[index] = flower
+
+
 func _update_counters() -> void:
 	flowers_label.text = "Flowers planted: %d" % planted_flowers.size()
 	butterflies_label.text = "Butterflies fed: %d" % butterflies_fed
@@ -401,6 +433,8 @@ func _enter_stage(next_stage: String) -> void:
 	stage = next_stage
 	if stage == "butterflies":
 		maze_index = 0
+	elif stage == "celebration":
+		_start_celebration()
 	wave_direction = 0
 	wave_switches = 0
 	wave_last_ms = -1
@@ -425,6 +459,7 @@ func _start_session() -> void:
 	butterflies_fed = 0
 	planted_flowers.clear()
 	spoiled_flowers.clear()
+	celebration_flowers.clear()
 	maze_index = 0
 	stage = "idle"
 	spoken_stage = ""
@@ -635,3 +670,13 @@ func _draw() -> void:
 		draw_line(Vector2(480.0, 210.0), Vector2(800.0, 210.0), arrow_color, 10.0, true)
 		draw_colored_polygon(PackedVector2Array([Vector2(480.0, 210.0), Vector2(520.0, 184.0), Vector2(520.0, 236.0)]), arrow_color)
 		draw_colored_polygon(PackedVector2Array([Vector2(800.0, 210.0), Vector2(760.0, 184.0), Vector2(760.0, 236.0)]), arrow_color)
+	if stage in ["celebration", "complete"]:
+		for flower_value in celebration_flowers:
+			var flower: Dictionary = flower_value
+			var center: Vector2 = flower.position
+			var flower_scale: float = flower.scale
+			var flower_color: Color = flower.color
+			for petal in 6:
+				var angle: float = float(flower.angle) + float(petal) * TAU / 6.0
+				draw_circle(center + Vector2.from_angle(angle) * 11.0 * flower_scale, 8.0 * flower_scale, flower_color)
+			draw_circle(center, 6.5 * flower_scale, Color("ffe66d"))

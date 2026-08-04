@@ -32,6 +32,8 @@ loss keeps its on-screen warning but does not stop the session countdown.
 Flowers planted, butterflies fed, and the timer share a top-right statistics
 panel. Activity instructions are narrated as a short story instead of being
 shown as text; the tracking warning remains on the left when hands disappear.
+The closing celebration plays a bright chord and rains rotating, colorful
+flowers across the live camera view for fifteen seconds.
 
 The butterfly remains centered inside a narrow maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with
