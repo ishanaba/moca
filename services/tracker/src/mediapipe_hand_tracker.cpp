@@ -1,5 +1,7 @@
 #include "moca/hand_tracking/mediapipe_hand_tracker.hpp"
 
+#include "moca/hand_tracking/association.hpp"
+
 #include "mediapipe_c_api.hpp"
 
 #include <algorithm>
@@ -146,29 +148,10 @@ std::vector<HandObservation> MediaPipeHandTracker::infer(
     if (index < result.handedness_count && result.handedness[index].categories_count > 0)
       confidence = result.handedness[index].categories[0].score;
 
-    std::uint32_t person_id = 0;
-    std::uint32_t hand_id = 1000 + index;
-    float best_distance = 0.18F * 0.18F;
-    bool matched_right = false;
-    for (const auto& person : persons) {
-      for (int wrist_index : {9, 10}) {
-        const auto& wrist = person.detection.keypoints[wrist_index];
-        if (wrist.confidence < 0.15F) continue;
-        const float dx = center.x - wrist.x;
-        const float dy = center.y - wrist.y;
-        const float distance = dx * dx + dy * dy;
-        if (distance < best_distance) {
-          best_distance = distance;
-          person_id = person.id + 1;
-          matched_right = wrist_index == 10;
-          hand_id = person.id * 2 + (matched_right ? 2 : 1);
-        }
-      }
-    }
-    hands.push_back({hand_id, person_id, center, std::move(landmarks), confidence});
+    hands.push_back({1000 + index, 0, center, std::move(landmarks), confidence});
   }
   state_->close_result(&result);
-  return hands;
+  return associate_hands_to_wrists(std::move(hands), persons);
 }
 
 }  // namespace moca

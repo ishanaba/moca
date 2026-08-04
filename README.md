@@ -37,8 +37,10 @@ without changing the game client or wire transport.
 
 The optional `mediapipe` backend runs Google's MediaPipe Hand Landmarker on
 each camera frame, publishes all 21 landmarks, and associates each detected
-hand with the closest YOLO body-pose wrist. The default remains `wrist`, so the
-original path is unchanged.
+hand one-to-one with the closest YOLO body-pose wrist. Only identified hands
+are sent to gameplay: YOLO supplies the stable player identity and MediaPipe
+supplies the hand/wrist position. The default remains `wrist`, so the original
+path is unchanged.
 
 ```sh
 make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model

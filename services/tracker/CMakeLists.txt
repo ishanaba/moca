@@ -27,7 +27,8 @@ else()
   add_library(moca_gstreamer ALIAS PkgConfig::GSTREAMER)
 endif()
 add_library(moca_tracker_core src/gstreamer_capture.cpp src/identity_tracker.cpp
-  src/openvino_yolo_pose.cpp src/wrist_hand_tracker.cpp src/mediapipe_hand_tracker.cpp)
+  src/openvino_yolo_pose.cpp src/wrist_hand_tracker.cpp src/mediapipe_hand_tracker.cpp
+  src/hand_association.cpp)
 set_target_properties(moca_tracker_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(moca_tracker_core PUBLIC include)
 target_compile_features(moca_tracker_core PUBLIC cxx_std_20)
