@@ -18,6 +18,8 @@ var last_hand_update_ms := -10000
 var serve_toward_player := true
 var serve_countdown := 0.0
 var last_player_hit_ms := -1000
+var stalled_seconds := 0.0
+var rally_seconds := 0.0
 var ball: RigidBody3D
 var player_racket: AnimatableBody3D
 var player_shape: CollisionShape3D
@@ -45,6 +47,12 @@ func _physics_process(delta: float) -> void:
 		serve_countdown -= delta
 		if serve_countdown <= 0.0:
 			_launch_ball()
+	elif not ball.freeze:
+		rally_seconds += delta
+		stalled_seconds = stalled_seconds + delta if Rules.ball_is_stalled(ball.position, ball.linear_velocity) else 0.0
+		if stalled_seconds > 1.0 or rally_seconds > 15.0:
+			serve_toward_player = not serve_toward_player
+			_reset_ball()
 	_check_point()
 
 
@@ -123,6 +131,8 @@ func _reset_ball() -> void:
 	ball.angular_velocity = Vector3.ZERO
 	ball.freeze = true
 	serve_countdown = 1.25
+	stalled_seconds = 0.0
+	rally_seconds = 0.0
 	_update_score()
 
 
@@ -157,9 +167,12 @@ func _build_world() -> void:
 	camera.position = Vector3(0.0, 4.2, 6.8)
 	camera.look_at_from_position(camera.position, Vector3(0.0, 0.8, 0.0))
 	add_child(camera)
-	_create_static_box("Floor", Vector3(8.0, 0.1, 10.0), Vector3(0.0, -0.1, 0.0), Color("17243a"))
-	_create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
-	_create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
+	var floor_body := _create_static_box("Floor", Vector3(8.0, 0.1, 10.0), Vector3(0.0, -0.1, 0.0), Color("17243a"))
+	floor_body.physics_material_override = _material(0.08, 0.45)
+	var table_body := _create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
+	table_body.physics_material_override = _material(0.68, 0.22)
+	var net_body := _create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
+	net_body.physics_material_override = _material(0.12, 0.5)
 	_create_static_box("CenterLine", Vector3(0.018, 0.008, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT + 0.066, 0.0), Color("d9f4ff"), false)
 	player_racket = _create_hand_collider(Vector3(0.0, 1.18, RACKET_Z))
 	player_shape = player_racket.get_node("CollisionShape3D")
@@ -167,10 +180,12 @@ func _build_world() -> void:
 	ball = RigidBody3D.new()
 	ball.name = "Ball"
 	ball.mass = 0.0027
+	ball.linear_damp = 0.035
+	ball.angular_damp = 0.18
 	ball.continuous_cd = true
 	ball.contact_monitor = true
 	ball.max_contacts_reported = 8
-	ball.physics_material_override = _material(0.88, 0.15)
+	ball.physics_material_override = _material(0.68, 0.18)
 	var ball_shape := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
 	sphere.radius = 0.09

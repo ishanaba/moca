@@ -77,6 +77,10 @@ Because a single camera cannot measure forward motion, covering an incoming
 ball with the wrist collider creates a deterministic Jolt return toward the
 computer.
 
+Ball/table restitution is intentionally lossy, the net has very low bounce,
+and a rally watchdog resets balls that stall near mid-table for more than one
+second or remain in play for more than fifteen seconds.
+
 Horizontal wrist movement is the sole positional control and spans the table
 width; racket height and depth stay fixed for stability. The overlay highlights
 the wrist at the end of the YOLO arm chain as the playable contact area.

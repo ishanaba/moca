@@ -71,3 +71,5 @@ func _test_table_tennis_mapping() -> void:
 	var centered_return := TableTennisRulesForTest.hand_return_velocity(0.0, 0.0)
 	_expect(centered_return.z < -5.0 and centered_return.y > 1.0, "hand contact should return the ball toward the computer")
 	_expect(TableTennisRulesForTest.hand_return_velocity(0.4, 0.0).x > 0.0, "off-center hand contact should steer the return")
+	_expect(TableTennisRulesForTest.ball_is_stalled(Vector3(0.0, 1.0, 0.1), Vector3(0.0, 0.2, 0.2)), "slow mid-table ball should be detected as stalled")
+	_expect(not TableTennisRulesForTest.ball_is_stalled(Vector3(0.0, 1.0, 1.5), Vector3(0.0, 0.2, -4.0)), "active rally ball should not be detected as stalled")
