@@ -12,9 +12,12 @@ static func camera_to_racket(pixel: Vector2, frame_size: Vector2, table_width: f
 	return Vector3(clampf(x, -table_width * 0.52, table_width * 0.52), 1.18, racket_z)
 
 
-static func hand_return_velocity(ball_x: float, hand_x: float) -> Vector3:
+static func hand_return_velocity(ball_x: float, hand_x: float, hand_velocity := Vector2.ZERO) -> Vector3:
 	var horizontal_offset := clampf((ball_x - hand_x) / 0.36, -1.0, 1.0)
-	return Vector3(horizontal_offset * 1.55, 2.55, -5.2)
+	var sideways: float = clampf(horizontal_offset * 1.25 + hand_velocity.x * 0.72, -3.2, 3.2)
+	var lift: float = clampf(2.2 + hand_velocity.y * 0.55, 1.45, 3.6)
+	var forward_speed: float = clampf(4.7 + hand_velocity.length() * 0.28, 4.7, 6.6)
+	return Vector3(sideways, lift, -forward_speed)
 
 
 static func computer_return_velocity(ball_x: float, racket_x: float) -> Vector3:

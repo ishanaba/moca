@@ -12,6 +12,9 @@ const WIN_SCORE := 11
 var player_score := 0
 var opponent_score := 0
 var hand_target := Vector3(0.0, 1.15, RACKET_Z)
+var hand_velocity := Vector2.ZERO
+var previous_hand_pixel := Vector2.ZERO
+var previous_hand_sample_ms := -1
 var active_hand_id := -1
 var hand_detected := false
 var last_hand_update_ms := -10000
@@ -28,6 +31,7 @@ var ball: RigidBody3D
 var player_racket: AnimatableBody3D
 var player_shape: CollisionShape3D
 var opponent_racket: AnimatableBody3D
+var opponent_shape: CollisionShape3D
 var score_label: Label
 var status_label: Label
 var hand_overlay: HandOverlay
@@ -51,6 +55,7 @@ func _physics_process(delta: float) -> void:
 		active_hand_id = -1
 	_update_player_racket(delta)
 	_update_opponent(delta)
+	_update_computer_contact()
 	if serve_countdown > 0.0:
 		serve_countdown -= delta
 		if serve_countdown <= 0.0:
@@ -86,6 +91,17 @@ func _on_snapshot_updated(players: Array) -> void:
 	if hand_overlay:
 		hand_overlay.set_arm(strongest.get("landmarks", []))
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
+	var now_ms := Time.get_ticks_msec()
+	if previous_hand_sample_ms >= 0:
+		var sample_seconds: float = maxf(float(now_ms - previous_hand_sample_ms) / 1000.0, 0.001)
+		var pixel_velocity: Vector2 = (palm - previous_hand_pixel) / sample_seconds
+		var measured_velocity := Vector2(
+			pixel_velocity.x * TABLE_WIDTH / 1280.0,
+			-pixel_velocity.y * 1.6 / 720.0
+		)
+		hand_velocity = hand_velocity.lerp(measured_velocity, 0.35)
+	previous_hand_pixel = palm
+	previous_hand_sample_ms = now_ms
 	hand_target = Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
 
 
@@ -121,7 +137,7 @@ func _on_player_contact() -> void:
 		return
 	# Depth is not observable with one camera, so contact with the wrist plane
 	# creates a deterministic return toward the computer.
-	ball.linear_velocity = Rules.hand_return_velocity(ball.position.x, player_racket.position.x)
+	ball.linear_velocity = Rules.hand_return_velocity(ball.position.x, player_racket.position.x, hand_velocity)
 	var horizontal_offset := ball.linear_velocity.x / 1.8
 	ball.angular_velocity = Vector3(0.0, horizontal_offset * 18.0, 0.0)
 	last_hitter = "player"
@@ -133,7 +149,6 @@ func _on_computer_contact() -> void:
 	if ball.linear_velocity.z >= 0.0:
 		return
 	if last_hitter == "player" and receiver_bounces == 0:
-		_award_point("player", "COMPUTER FOUL")
 		return
 	ball.linear_velocity = Rules.computer_return_velocity(ball.position.x, opponent_racket.position.x)
 	ball.angular_velocity = Vector3(0.0, -ball.linear_velocity.x * 8.0, 0.0)
@@ -184,6 +199,15 @@ func _update_opponent(delta: float) -> void:
 		target.y = clampf(intercept.y, 0.98, 1.55)
 		tracking_speed = 10.0
 	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * tracking_speed))
+	opponent_shape.disabled = not (last_hitter == "player" and receiver_bounces >= 1)
+
+
+func _update_computer_contact() -> void:
+	# The computer waits for one legal table bounce, then completes the return
+	# at its baseline. This keeps the simple opponent from fouling or watching a
+	# playable shot bounce twice because its animated collider arrived late.
+	if not ball.freeze and last_hitter == "player" and receiver_bounces == 1 and ball.linear_velocity.z < 0.0 and ball.position.z <= -1.72:
+		_on_computer_contact()
 
 
 func _check_point() -> void:
@@ -209,6 +233,8 @@ func _reset_ball() -> void:
 	stalled_seconds = 0.0
 	rally_seconds = 0.0
 	receiver_bounces = 0
+	hand_velocity = Vector2.ZERO
+	previous_hand_sample_ms = -1
 	_update_score()
 
 
@@ -217,7 +243,12 @@ func _launch_ball() -> void:
 	ball.sleeping = false
 	var direction := 1.0 if serve_toward_player else -1.0
 	last_hitter = "computer" if serve_toward_player else "player"
-	ball.linear_velocity = Vector3(random.randf_range(-0.55, 0.55), 1.05, direction * 4.4)
+	if serve_toward_player:
+		# Mix wide, body, and opposite-corner computer serves.
+		ball.position.x = random.randf_range(-0.55, 0.55)
+		ball.linear_velocity = Vector3(random.randf_range(-1.45, 1.45), random.randf_range(0.9, 1.35), random.randf_range(4.15, 4.75))
+	else:
+		ball.linear_velocity = Vector3(random.randf_range(-0.7, 0.7), 1.1, direction * 4.4)
 
 
 func _update_score() -> void:
@@ -254,6 +285,7 @@ func _build_world() -> void:
 	player_racket = _create_hand_collider(Vector3(0.0, 1.18, RACKET_Z))
 	player_shape = player_racket.get_node("CollisionShape3D")
 	opponent_racket = _create_racket("OpponentRacket", Color("ff657f"), Vector3(0.0, 1.15, -RACKET_Z))
+	opponent_shape = opponent_racket.get_node("CollisionShape3D")
 	ball = RigidBody3D.new()
 	ball.name = "Ball"
 	ball.mass = 0.0027

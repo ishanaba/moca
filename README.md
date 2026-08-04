@@ -74,8 +74,9 @@ MediaPipe Hand Landmarker is not loaded. The ball is a continuous-collision
 
 The player-side racket mesh is hidden: the highlighted YOLO wrist is the racket.
 Because a single camera cannot measure forward motion, covering an incoming
-ball with the wrist collider creates a deterministic Jolt return toward the
-computer.
+ball with the wrist collider creates forward contact toward the computer.
+Measured wrist speed and screen-space direction are added to that contact, so
+quick sideways and upward hand movements steer and accelerate the return.
 
 Ball/table restitution is intentionally lossy, the net has very low bounce,
 and a rally watchdog resets balls that stall near mid-table for more than one
@@ -89,7 +90,10 @@ Returns clear the net before their first bounce, and that first rebound is
 bounded to a playable height so the computer does not create repeated low
 double-bounces. The computer leads incoming shots to their projected baseline
 crossing instead of chasing the ball's current position, giving it time to make
-a natural return after the legal first bounce.
+a natural return after the legal first bounce. It never volleys: its collider
+activates only after that bounce, and the simple opponent completes its return
+at the baseline before a second bounce. Computer serves vary their starting
+position, lateral angle, height, and speed.
 
 Horizontal wrist movement is the sole positional control and spans the table
 width; racket height and depth stay fixed for stability. The overlay highlights
