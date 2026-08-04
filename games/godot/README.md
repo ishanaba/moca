@@ -15,12 +15,14 @@ godot --path games/godot -- --live=ws://127.0.0.1:8765
 ```
 
 The child sees a mirrored live camera feed and uses either YOLO-tracked wrist to
-catch seeds, guide a butterfly through a maze, and pop bubbles with a pointed
+catch seeds, guide a butterfly through a maze, and pop falling magic balls with a pointed
 magic wand during a guided three-minute session. Caught seeds animate into the
-flower bed, planting and popping play synthesized effects, and stars grow a
-procedural garden. Missed targets carry no penalty. Space pauses, R restarts,
-and Escape exits. Run the camera experience from the repository root with
-`make magic-garden-live`.
+flower bed, and the UI counts flowers planted and butterflies fed. During the
+final stage, magic balls fall toward planted flowers: wand pops protect the
+garden, while a missed ball visibly spoils and removes one flower. Planting,
+popping, and damage play synthesized effects. Space pauses, R restarts, and
+Escape exits. Run the camera experience from the repository root with `make
+magic-garden-live`.
 
 The butterfly remains centered inside a maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with

@@ -23,7 +23,7 @@ func _process(delta: float) -> void:
 	if position.x - radius < safe_rect.position.x or position.x + radius > safe_rect.end.x:
 		velocity.x *= -1.0
 		position.x = clampf(position.x, safe_rect.position.x + radius, safe_rect.end.x - radius)
-	if position.y - radius < safe_rect.position.y or position.y + radius > safe_rect.end.y:
+	if kind != "magic_ball" and (position.y - radius < safe_rect.position.y or position.y + radius > safe_rect.end.y):
 		velocity.y *= -1.0
 		position.y = clampf(position.y, safe_rect.position.y + radius, safe_rect.end.y - radius)
 	queue_redraw()
@@ -48,4 +48,5 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, radius * pulse, Color(0.35, 0.85, 1.0, 0.2))
 		draw_arc(Vector2.ZERO, radius * pulse, 0.0, TAU, 48, Color(0.72, 0.95, 1.0, 0.92), 7.0, true)
 		draw_circle(Vector2(-radius * 0.3, -radius * 0.3), radius * 0.13, Color(1.0, 1.0, 1.0, 0.75))
-
+		if kind == "magic_ball":
+			draw_line(Vector2(0.0, -radius * 1.5), Vector2.ZERO, Color(0.55, 0.9, 1.0, 0.55), 5.0, true)

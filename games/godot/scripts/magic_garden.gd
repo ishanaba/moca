@@ -15,7 +15,8 @@ var camera_view: TextureRect
 var camera_texture: ImageTexture
 var target: GardenTarget
 var instruction_label: Label
-var stars_label: Label
+var flowers_label: Label
+var butterflies_label: Label
 var time_label: Label
 var tracking_label: Label
 var start_button: Button
@@ -25,7 +26,7 @@ var running := false
 var manually_paused := false
 var elapsed := 0.0
 var stage := "idle"
-var stars := 0
+var butterflies_fed := 0
 var locked_person_id := 0
 var hands := {}
 var previous_hands := {}
@@ -44,6 +45,7 @@ var butterfly_hand_motion := Vector2.ZERO
 var maze_index := 0
 var active_maze_path: Array = []
 var planted_flowers: Array[Vector2] = []
+var spoiled_flowers: Array[Dictionary] = []
 var pending_flower_position := Vector2.ZERO
 
 
@@ -95,6 +97,9 @@ func _process(delta: float) -> void:
 		return
 	if stage == "butterflies" and target:
 		_update_butterfly()
+	if stage == "bubbles" and target:
+		_check_magic_ball_damage()
+	_update_spoiled_flowers(delta)
 	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
@@ -215,8 +220,6 @@ func _collect_target() -> void:
 func _complete_collection(sound_kind: String) -> void:
 	if target == null:
 		return
-	stars += 1
-	stars_label.text = "★ %d" % stars
 	if sound_kind == "plant":
 		planted_flowers.append(pending_flower_position)
 		_play_tone(520.0, 0.22)
@@ -224,7 +227,9 @@ func _complete_collection(sound_kind: String) -> void:
 	elif sound_kind == "pop":
 		_play_tone(900.0, 0.11)
 	elif sound_kind == "maze":
+		butterflies_fed += 1
 		maze_index += 1
+	_update_counters()
 	_record_outcome(true)
 	collecting = false
 	_spawn_target()
@@ -257,7 +262,16 @@ func _spawn_target() -> void:
 	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
 	var target_radius: float = 36.0 if stage == "butterflies" else float(difficulty.radius)
 	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
-	target.configure("seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "bubble"), target_radius, speed, direction, target_lifetime)
+	var target_kind := "seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "magic_ball")
+	if stage == "bubbles":
+		var target_x := random.randf_range(180.0, 1100.0)
+		if not planted_flowers.is_empty():
+			target_x = planted_flowers[random.randi_range(0, planted_flowers.size() - 1)].x
+		target.position = Vector2(target_x, 95.0)
+		direction = Vector2.DOWN
+		speed = random.randf_range(72.0, 105.0)
+		target_lifetime = 9.0
+	target.configure(target_kind, target_radius, speed, direction, target_lifetime)
 	target.z_index = 5
 	add_child(target)
 	if stage == "butterflies":
@@ -276,6 +290,34 @@ func _make_maze_path() -> Array:
 	path.append(Vector2(flower_position.x, 510.0))
 	path.append(flower_position)
 	return path
+
+
+func _check_magic_ball_damage() -> void:
+	for index in planted_flowers.size():
+		if target.position.distance_to(planted_flowers[index]) <= target.radius + 28.0:
+			spoiled_flowers.append({"position": planted_flowers[index], "age": 0.0})
+			planted_flowers.remove_at(index)
+			_play_tone(260.0, 0.3)
+			_play_tone(180.0, 0.38)
+			_record_outcome(false)
+			_update_counters()
+			_spawn_target()
+			return
+
+
+func _update_spoiled_flowers(delta: float) -> void:
+	for index in range(spoiled_flowers.size() - 1, -1, -1):
+		var spoiled: Dictionary = spoiled_flowers[index]
+		spoiled.age = float(spoiled.age) + delta
+		if float(spoiled.age) > 1.6:
+			spoiled_flowers.remove_at(index)
+		else:
+			spoiled_flowers[index] = spoiled
+
+
+func _update_counters() -> void:
+	flowers_label.text = "Flowers planted: %d" % planted_flowers.size()
+	butterflies_label.text = "Butterflies fed: %d" % butterflies_fed
 
 
 func _update_butterfly() -> void:
@@ -314,7 +356,7 @@ func _enter_stage(next_stage: String) -> void:
 		"welcome": "Wave to wake the garden",
 		"seeds": "Touch the glowing seeds",
 		"butterflies": "Move your hand in the path direction to guide the butterfly",
-		"bubbles": "Use your magic pointer to pop the bubbles",
+		"bubbles": "Pop falling magic balls before they spoil the flowers",
 		"celebration": "Look — the garden is growing!",
 	}
 	instruction_label.text = str(prompts.get(stage, "Great job!"))
@@ -328,14 +370,15 @@ func _start_session() -> void:
 	running = true
 	manually_paused = false
 	elapsed = 0.0
-	stars = 0
+	butterflies_fed = 0
 	planted_flowers.clear()
+	spoiled_flowers.clear()
 	maze_index = 0
 	stage = "idle"
 	spoken_stage = ""
 	outcomes.clear()
 	locked_person_id = 0
-	stars_label.text = "★ 0"
+	_update_counters()
 	start_button.visible = false
 	pause_button.visible = true
 	replay_button.visible = false
@@ -366,7 +409,7 @@ func _finish_session() -> void:
 func _show_idle() -> void:
 	instruction_label.text = "Magic Garden Rescue"
 	time_label.text = "3:00"
-	stars_label.text = "★ 0"
+	_update_counters()
 	pause_button.visible = false
 	replay_button.visible = false
 
@@ -427,11 +470,16 @@ func _build_ui() -> void:
 	instruction_label.add_theme_font_size_override("font_size", 34)
 	instruction_label.add_theme_color_override("font_color", Color("fff7b2"))
 	add_child(instruction_label)
-	stars_label = Label.new()
-	stars_label.position = Vector2(30.0, 25.0)
-	stars_label.add_theme_font_size_override("font_size", 32)
-	stars_label.add_theme_color_override("font_color", Color("ffe46b"))
-	add_child(stars_label)
+	flowers_label = Label.new()
+	flowers_label.position = Vector2(24.0, 20.0)
+	flowers_label.add_theme_font_size_override("font_size", 25)
+	flowers_label.add_theme_color_override("font_color", Color("ffe46b"))
+	add_child(flowers_label)
+	butterflies_label = Label.new()
+	butterflies_label.position = Vector2(24.0, 55.0)
+	butterflies_label.add_theme_font_size_override("font_size", 23)
+	butterflies_label.add_theme_color_override("font_color", Color("ffb8e5"))
+	add_child(butterflies_label)
 	time_label = Label.new()
 	time_label.position = Vector2(1160.0, 28.0)
 	time_label.add_theme_font_size_override("font_size", 26)
@@ -471,6 +519,15 @@ func _draw() -> void:
 			var angle := float(petal) * TAU / 6.0
 			draw_circle(Vector2(x, y) + Vector2.from_angle(angle) * 13.0, 10.0, flower_color)
 		draw_circle(Vector2(x, y), 8.0, Color("ffe66d"))
+	for spoiled_value in spoiled_flowers:
+		var spoiled: Dictionary = spoiled_value
+		var point: Vector2 = spoiled.position
+		var fade := 1.0 - clampf(float(spoiled.age) / 1.6, 0.0, 1.0)
+		var bad_color := Color(0.35, 0.2, 0.12, fade)
+		draw_line(Vector2(point.x, 710.0), point + Vector2(12.0, 15.0), bad_color, 7.0, true)
+		for petal in 5:
+			var angle := float(petal) * TAU / 5.0
+			draw_circle(point + Vector2(12.0, 15.0) + Vector2.from_angle(angle) * 11.0, 9.0, bad_color)
 	if stage == "butterflies" and not active_maze_path.is_empty():
 		draw_polyline(PackedVector2Array(active_maze_path), Color(0.12, 0.08, 0.24, 0.9), 130.0, true)
 		draw_polyline(PackedVector2Array(active_maze_path), Color(0.55, 0.9, 0.55, 0.48), 100.0, true)
