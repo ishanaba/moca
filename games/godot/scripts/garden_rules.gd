@@ -31,6 +31,26 @@ static func segment_hits_circle(start: Vector2, finish: Vector2, center: Vector2
 	return (start + segment * amount).distance_squared_to(center) <= radius * radius
 
 
+static func closest_point_on_path(point: Vector2, path: Array) -> Vector2:
+	if path.is_empty():
+		return point
+	var closest: Vector2 = path[0]
+	var closest_distance := INF
+	for index in path.size() - 1:
+		var start: Vector2 = path[index]
+		var finish: Vector2 = path[index + 1]
+		var segment := finish - start
+		var amount := 0.0
+		if segment.length_squared() > 0.000001:
+			amount = clampf((point - start).dot(segment) / segment.length_squared(), 0.0, 1.0)
+		var candidate := start + segment * amount
+		var distance := point.distance_squared_to(candidate)
+		if distance < closest_distance:
+			closest_distance = distance
+			closest = candidate
+	return closest
+
+
 static func difficulty_for_history(history: Array) -> Dictionary:
 	if history.is_empty():
 		return {"radius": 90.0, "speed": 50.0, "lifetime": 7.0}

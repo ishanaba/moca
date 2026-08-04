@@ -5,6 +5,11 @@ const TargetScript = preload("res://scripts/garden_target.gd")
 const SAFE_RECT := Rect2(128.0, 130.0, 1024.0, 460.0)
 const TRACKING_TIMEOUT_MS := 650
 const TRACKING_STABLE_MS := 250
+const MAZE_POINTS := [
+	Vector2(180.0, 510.0), Vector2(180.0, 185.0), Vector2(470.0, 185.0),
+	Vector2(470.0, 455.0), Vector2(760.0, 455.0), Vector2(760.0, 185.0),
+	Vector2(1080.0, 185.0),
+]
 
 var camera_view: TextureRect
 var camera_texture: ImageTexture
@@ -32,6 +37,7 @@ var wave_direction := 0
 var wave_switches := 0
 var wave_last_ms := -1
 var spoken_stage := ""
+var collecting := false
 
 
 func _ready() -> void:
@@ -78,7 +84,9 @@ func _process(delta: float) -> void:
 	if stage == "complete":
 		_finish_session()
 		return
-	if target and target.expired():
+	if stage == "butterflies" and target:
+		_update_butterfly(delta)
+	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
 	time_label.text = "%d:%02d" % [int((Rules.SESSION_END - elapsed) / 60.0), int(Rules.SESSION_END - elapsed) % 60]
@@ -128,10 +136,23 @@ func _on_snapshot_updated(observations: Array) -> void:
 			continue
 		var hand_id := int(observation.get("hand_id", observation.get("id", 0)))
 		var point: Vector2 = observation.get("blade", Vector2.ZERO)
-		next_hands[hand_id] = {"point": point, "side": str(observation.get("side", "unknown"))}
+		var tip_direction := Vector2(0.0, -1.0)
+		var old_tip := point + tip_direction * 70.0
 		if hands.has(hand_id):
 			var old_point: Vector2 = hands[hand_id].point
-			_handle_hand_path(old_point, point, now_ms)
+			old_tip = hands[hand_id].get("tip", old_point + Vector2(0.0, -70.0))
+			var old_direction: Vector2 = old_tip - old_point
+			if old_direction.length_squared() > 0.0:
+				tip_direction = old_direction.normalized()
+			var movement := point - old_point
+			if movement.length_squared() > 4.0:
+				tip_direction = movement.normalized()
+			var tip := point + tip_direction * 70.0
+			_handle_hand_path(old_point, point, old_tip, tip, now_ms)
+		else:
+			old_tip = point + tip_direction * 70.0
+		var tip := point + tip_direction * 70.0
+		next_hands[hand_id] = {"point": point, "tip": tip, "side": str(observation.get("side", "unknown"))}
 	if next_hands.is_empty() and now_ms - last_tracking_ms <= TRACKING_TIMEOUT_MS:
 		# Hold the most recent cursor through a short wrist-confidence dropout.
 		return
@@ -142,33 +163,55 @@ func _on_snapshot_updated(observations: Array) -> void:
 	queue_redraw()
 
 
-func _handle_hand_path(old_point: Vector2, point: Vector2, now_ms: int) -> void:
+func _handle_hand_path(old_point: Vector2, point: Vector2, old_tip: Vector2, new_tip: Vector2, now_ms: int) -> void:
 	if not running or manually_paused:
 		return
-	if stage in ["welcome", "butterflies"]:
+	if stage == "welcome":
 		var frame_seconds := maxf(float(now_ms - last_tracking_ms) / 1000.0, 0.001)
-		var required_switches := 2 if stage == "welcome" else 3
-		var speed_threshold := 260.0 if stage == "welcome" else 360.0
+		var required_switches := 2
+		var speed_threshold := 260.0
 		var state := Rules.next_wave_state(wave_direction, wave_switches, wave_last_ms, (point.x - old_point.x) / frame_seconds, now_ms, required_switches, speed_threshold)
 		wave_direction = int(state.direction)
 		wave_switches = int(state.switches)
 		wave_last_ms = int(state.last_ms)
 		if bool(state.complete):
-			if stage == "welcome":
-				elapsed = Rules.INTRO_END
-				_enter_stage("seeds")
-			else:
-				_collect_target()
-	elif target and Rules.segment_hits_circle(old_point, point, target.position, target.radius + 24.0):
+			elapsed = Rules.INTRO_END
+			_enter_stage("seeds")
+	elif stage == "bubbles" and target:
+		if Rules.segment_hits_circle(old_tip, new_tip, target.position, target.radius):
+			_collect_target()
+	elif stage == "seeds" and target and Rules.segment_hits_circle(old_point, point, target.position, target.radius + 24.0):
 		_collect_target()
 
 
 func _collect_target() -> void:
+	if target == null or collecting:
+		return
+	if stage == "seeds":
+		collecting = true
+		target.set_process(false)
+		var bed_position := Vector2(random.randf_range(100.0, 1180.0), 650.0)
+		var tween := create_tween().set_parallel(true)
+		tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tween.tween_property(target, "position", bed_position, 0.65)
+		tween.tween_property(target, "scale", Vector2(0.35, 0.35), 0.65)
+		tween.chain().tween_callback(_complete_collection.bind("plant"))
+		return
+	_complete_collection("pop" if stage == "bubbles" else "maze")
+
+
+func _complete_collection(sound_kind: String) -> void:
 	if target == null:
 		return
 	stars += 1
 	stars_label.text = "★ %d" % stars
+	if sound_kind == "plant":
+		_play_tone(520.0, 0.22)
+		_play_tone(720.0, 0.28)
+	elif sound_kind == "pop":
+		_play_tone(900.0, 0.11)
 	_record_outcome(true)
+	collecting = false
 	_spawn_target()
 
 
@@ -181,22 +224,42 @@ func _record_outcome(success: bool) -> void:
 func _spawn_target() -> void:
 	if target:
 		target.queue_free()
-		target = null
+	target = null
+	collecting = false
 	if stage not in ["seeds", "butterflies", "bubbles"]:
 		return
 	var difficulty := Rules.difficulty_for_history(outcomes)
 	target = TargetScript.new()
 	target.safe_rect = SAFE_RECT
 	var margin: float = float(difficulty.radius)
-	target.position = Vector2(
+	target.position = MAZE_POINTS[0] if stage == "butterflies" else Vector2(
 		random.randf_range(SAFE_RECT.position.x + margin, SAFE_RECT.end.x - margin),
 		random.randf_range(SAFE_RECT.position.y + margin, SAFE_RECT.end.y - margin)
 	)
 	var direction := Vector2(random.randf_range(-1.0, 1.0), random.randf_range(-0.55, 0.55))
 	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
-	target.configure("seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "bubble"), float(difficulty.radius), speed, direction, float(difficulty.lifetime))
+	var target_radius: float = 52.0 if stage == "butterflies" else float(difficulty.radius)
+	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
+	target.configure("seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "bubble"), target_radius, speed, direction, target_lifetime)
 	target.z_index = 5
 	add_child(target)
+
+
+func _update_butterfly(delta: float) -> void:
+	var nearest_hand := Vector2.ZERO
+	var nearest_distance := INF
+	for hand_value in hands.values():
+		var distance: float = target.position.distance_to(hand_value.point)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_hand = hand_value.point
+	if nearest_distance < 240.0:
+		var desired := nearest_hand - target.position
+		if desired.length_squared() > 4.0:
+			var proposed := target.position + desired.normalized() * 145.0 * delta
+			target.position = Rules.closest_point_on_path(proposed, MAZE_POINTS)
+	if target.position.distance_to(MAZE_POINTS[-1]) < 58.0:
+		_complete_collection("maze")
 
 
 func _enter_stage(next_stage: String) -> void:
@@ -207,8 +270,8 @@ func _enter_stage(next_stage: String) -> void:
 	var prompts := {
 		"welcome": "Wave to wake the garden",
 		"seeds": "Touch the glowing seeds",
-		"butterflies": "Wave your hand to guide the butterflies",
-		"bubbles": "Pop the magic bubbles",
+		"butterflies": "Guide the butterfly from START to the glowing flower",
+		"bubbles": "Use your magic pointer to pop the bubbles",
 		"celebration": "Look — the garden is growing!",
 	}
 	instruction_label.text = str(prompts.get(stage, "Great job!"))
@@ -272,6 +335,27 @@ func _speak(message: String) -> void:
 	if not voices.is_empty():
 		DisplayServer.tts_stop()
 		DisplayServer.tts_speak(message, str(voices[0]), 65, 1.0, 1.05)
+
+
+func _play_tone(frequency: float, duration: float) -> void:
+	var sample_rate := 22050
+	var sample_count := int(float(sample_rate) * duration)
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for index in sample_count:
+		var envelope := 1.0 - float(index) / float(sample_count)
+		var sample := int(sin(TAU * frequency * float(index) / float(sample_rate)) * 12000.0 * envelope)
+		data.encode_s16(index * 2, sample)
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = data
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.finished.connect(player.queue_free)
+	add_child(player)
+	player.play()
 
 
 func _build_ui() -> void:
@@ -343,10 +427,22 @@ func _draw() -> void:
 			var angle := float(petal) * TAU / 6.0
 			draw_circle(Vector2(x, y) + Vector2.from_angle(angle) * 13.0, 10.0, flower_color)
 		draw_circle(Vector2(x, y), 8.0, Color("ffe66d"))
+	if stage == "butterflies":
+		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.12, 0.08, 0.24, 0.85), 92.0, true)
+		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.55, 0.9, 0.55, 0.42), 62.0, true)
+		draw_circle(MAZE_POINTS[0], 38.0, Color(0.35, 0.9, 0.55, 0.9))
+		draw_circle(MAZE_POINTS[-1], 45.0, Color(1.0, 0.82, 0.2, 0.9))
+		draw_string(ThemeDB.fallback_font, MAZE_POINTS[0] + Vector2(-38.0, 8.0), "START", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
 	for hand_value in hands.values():
 		var point: Vector2 = hand_value.point
 		draw_circle(point, 29.0, Color(1.0, 0.92, 0.3, 0.3))
 		draw_arc(point, 32.0, 0.0, TAU, 36, Color("fff6a3"), 6.0, true)
+		if stage == "bubbles":
+			var tip: Vector2 = hand_value.get("tip", point + Vector2(0.0, -70.0))
+			draw_line(point, tip, Color("d9f6ff"), 10.0, true)
+			var direction := (tip - point).normalized()
+			var side := direction.rotated(PI * 0.5) * 10.0
+			draw_colored_polygon(PackedVector2Array([tip + direction * 15.0, tip - direction * 12.0 + side, tip - direction * 12.0 - side]), Color("fff06a"))
 	if stage == "welcome":
 		var arrow_color := Color(1.0, 0.95, 0.45, 0.9)
 		draw_line(Vector2(480.0, 210.0), Vector2(800.0, 210.0), arrow_color, 10.0, true)

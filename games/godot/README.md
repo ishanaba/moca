@@ -15,10 +15,12 @@ godot --path games/godot -- --live=ws://127.0.0.1:8765
 ```
 
 The child sees a mirrored live camera feed and uses either YOLO-tracked wrist to
-touch seeds, wave butterflies onward, and pop bubbles during a guided
-three-minute session. Stars grow a procedural garden; missed targets carry no
-penalty. Space pauses, R restarts, and Escape exits. Run the camera experience
-from the repository root with `make magic-garden-live`.
+catch seeds, guide a butterfly through a maze, and pop bubbles with a pointed
+magic wand during a guided three-minute session. Caught seeds animate into the
+flower bed, planting and popping play synthesized effects, and stars grow a
+procedural garden. Missed targets carry no penalty. Space pauses, R restarts,
+and Escape exits. Run the camera experience from the repository root with
+`make magic-garden-live`.
 
 ## Test
 

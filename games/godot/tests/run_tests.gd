@@ -95,6 +95,8 @@ func _test_garden_rules() -> void:
 	_expect(GardenRulesForTest.stage_for_elapsed(165.0) == "celebration", "garden should end with a celebration")
 	_expect(GardenRulesForTest.stage_for_elapsed(180.0) == "complete", "garden should complete at three minutes")
 	_expect(GardenRulesForTest.segment_hits_circle(Vector2.ZERO, Vector2(100.0, 0.0), Vector2(50.0, 5.0), 10.0), "fast wrist paths should hit crossed targets")
+	var path := [Vector2(0.0, 0.0), Vector2(100.0, 0.0), Vector2(100.0, 100.0)]
+	_expect(GardenRulesForTest.closest_point_on_path(Vector2(45.0, 30.0), path).is_equal_approx(Vector2(45.0, 0.0)), "butterfly guidance should remain inside the maze path")
 	var easy := GardenRulesForTest.difficulty_for_history([false, false, true, false])
 	var hard := GardenRulesForTest.difficulty_for_history([true, true, true, true, true, true, true, false])
 	_expect(float(easy.radius) == 105.0 and float(easy.speed) == 35.0, "low success should make targets larger and slower")
