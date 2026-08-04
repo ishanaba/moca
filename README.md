@@ -92,7 +92,7 @@ double-bounces. The computer leads incoming shots to their projected baseline
 crossing instead of chasing the ball's current position, giving it time to make
 a natural return after the legal first bounce. It never volleys: its collider
 activates only after that bounce, and the simple opponent completes its return
-at the baseline before a second bounce. Computer serves vary their starting
+after a short reaction delay and always before a second bounce. Computer serves vary their starting
 position, lateral angle, height, and speed within a safe envelope that clears
 the net and lands comfortably inside the player's half.
 

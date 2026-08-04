@@ -25,6 +25,7 @@ var stalled_seconds := 0.0
 var rally_seconds := 0.0
 var last_hitter := "computer"
 var receiver_bounces := 0
+var computer_return_delay := -1.0
 var event_label: Label
 var event_seconds := 0.0
 var ball: RigidBody3D
@@ -55,7 +56,7 @@ func _physics_process(delta: float) -> void:
 		active_hand_id = -1
 	_update_player_racket(delta)
 	_update_opponent(delta)
-	_update_computer_contact()
+	_update_computer_contact(delta)
 	if serve_countdown > 0.0:
 		serve_countdown -= delta
 		if serve_countdown <= 0.0:
@@ -168,6 +169,8 @@ func _on_table_bounce() -> void:
 	# zone without allowing repeated rubber-ball hops.
 	if receiver_bounces == 1:
 		ball.linear_velocity.y = clampf(absf(ball.linear_velocity.y), 1.75, 2.15)
+		if last_hitter == "player" and bounce_side == "computer":
+			computer_return_delay = 0.12
 	if receiver_bounces >= 2:
 		_award_point(last_hitter, "DOUBLE BOUNCE")
 
@@ -202,12 +205,18 @@ func _update_opponent(delta: float) -> void:
 	opponent_shape.disabled = not (last_hitter == "player" and receiver_bounces >= 1)
 
 
-func _update_computer_contact() -> void:
-	# The computer waits for one legal table bounce, then completes the return
-	# at its baseline. This keeps the simple opponent from fouling or watching a
-	# playable shot bounce twice because its animated collider arrived late.
-	if not ball.freeze and last_hitter == "player" and receiver_bounces == 1 and ball.linear_velocity.z < 0.0 and ball.position.z <= -1.72:
-		_on_computer_contact()
+func _update_computer_contact(delta: float) -> void:
+	# Once the computer receives a legal bounce, use a short human-looking
+	# reaction delay rather than waiting for a baseline crossing. The latter can
+	# occur after the second bounce on slow or steep shots.
+	if computer_return_delay < 0.0:
+		return
+	computer_return_delay -= delta
+	if computer_return_delay <= 0.0:
+		computer_return_delay = -1.0
+		if not ball.freeze and last_hitter == "player" and receiver_bounces == 1:
+			opponent_racket.position.x = clampf(ball.position.x, -1.08, 1.08)
+			_on_computer_contact()
 
 
 func _check_point() -> void:
@@ -233,6 +242,7 @@ func _reset_ball() -> void:
 	stalled_seconds = 0.0
 	rally_seconds = 0.0
 	receiver_bounces = 0
+	computer_return_delay = -1.0
 	hand_velocity = Vector2.ZERO
 	previous_hand_sample_ms = -1
 	_update_score()
