@@ -20,6 +20,10 @@ var serve_countdown := 0.0
 var last_player_hit_ms := -1000
 var stalled_seconds := 0.0
 var rally_seconds := 0.0
+var last_hitter := "computer"
+var receiver_bounces := 0
+var event_label: Label
+var event_seconds := 0.0
 var ball: RigidBody3D
 var player_racket: AnimatableBody3D
 var player_shape: CollisionShape3D
@@ -38,6 +42,10 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if event_seconds > 0.0:
+		event_seconds -= delta
+		if event_seconds <= 0.0:
+			event_label.text = ""
 	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
 		hand_detected = false
 		active_hand_id = -1
@@ -91,17 +99,74 @@ func _update_player_racket(delta: float) -> void:
 
 
 func _on_ball_body_entered(body: Node) -> void:
-	if body != player_racket or not hand_detected or ball.linear_velocity.z <= 0.0:
+	if body == player_racket:
+		_on_player_contact()
+	elif body == opponent_racket:
+		_on_computer_contact()
+	elif body.name == "Table":
+		_on_table_bounce()
+	elif body.name == "Net":
+		_show_event("NET")
+
+
+func _on_player_contact() -> void:
+	if not hand_detected or ball.linear_velocity.z <= 0.0:
 		return
 	var now_ms := Time.get_ticks_msec()
 	if now_ms - last_player_hit_ms < 180:
 		return
 	last_player_hit_ms = now_ms
+	if last_hitter == "computer" and receiver_bounces == 0:
+		_award_point("computer", "FOUL — volley before bounce")
+		return
 	# Depth is not observable with one camera, so contact with the wrist plane
 	# creates a deterministic return toward the computer.
 	ball.linear_velocity = Rules.hand_return_velocity(ball.position.x, player_racket.position.x)
 	var horizontal_offset := ball.linear_velocity.x / 1.8
 	ball.angular_velocity = Vector3(0.0, horizontal_offset * 18.0, 0.0)
+	last_hitter = "player"
+	receiver_bounces = 0
+	_show_event("PLAYER HIT")
+
+
+func _on_computer_contact() -> void:
+	if ball.linear_velocity.z >= 0.0:
+		return
+	if last_hitter == "player" and receiver_bounces == 0:
+		_award_point("player", "COMPUTER FOUL")
+		return
+	ball.linear_velocity = Rules.computer_return_velocity(ball.position.x, opponent_racket.position.x)
+	ball.angular_velocity = Vector3(0.0, -ball.linear_velocity.x * 8.0, 0.0)
+	last_hitter = "computer"
+	receiver_bounces = 0
+
+
+func _on_table_bounce() -> void:
+	var bounce_side := "player" if ball.position.z > 0.0 else "computer"
+	var expected_side := "computer" if last_hitter == "player" else "player"
+	if receiver_bounces == 0 and bounce_side != expected_side:
+		var winner := "computer" if last_hitter == "player" else "player"
+		_award_point(winner, "FOUL — wrong-side bounce")
+		return
+	receiver_bounces += 1
+	if receiver_bounces >= 2:
+		_award_point(last_hitter, "DOUBLE BOUNCE")
+
+
+func _show_event(message: String) -> void:
+	event_label.text = message
+	event_seconds = 1.2
+
+
+func _award_point(winner: String, reason: String) -> void:
+	if winner == "player":
+		player_score += 1
+		serve_toward_player = true
+	else:
+		opponent_score += 1
+		serve_toward_player = false
+	_show_event(reason)
+	_reset_ball()
 
 
 func _update_opponent(delta: float) -> void:
@@ -111,13 +176,11 @@ func _update_opponent(delta: float) -> void:
 
 func _check_point() -> void:
 	if ball.position.z > 3.25 or ball.position.y < -0.5:
-		opponent_score += 1
-		serve_toward_player = false
-		_reset_ball()
+		var winner := last_hitter if receiver_bounces > 0 else ("computer" if last_hitter == "player" else "player")
+		_award_point(winner, "MISS")
 	elif ball.position.z < -3.25:
-		player_score += 1
-		serve_toward_player = true
-		_reset_ball()
+		var winner := last_hitter if receiver_bounces > 0 else ("computer" if last_hitter == "player" else "player")
+		_award_point(winner, "MISS")
 	if player_score >= WIN_SCORE or opponent_score >= WIN_SCORE:
 		player_score = 0
 		opponent_score = 0
@@ -133,6 +196,7 @@ func _reset_ball() -> void:
 	serve_countdown = 1.25
 	stalled_seconds = 0.0
 	rally_seconds = 0.0
+	receiver_bounces = 0
 	_update_score()
 
 
@@ -140,7 +204,8 @@ func _launch_ball() -> void:
 	ball.freeze = false
 	ball.sleeping = false
 	var direction := 1.0 if serve_toward_player else -1.0
-	ball.linear_velocity = Vector3(random.randf_range(-0.8, 0.8), 1.4, direction * 4.7)
+	last_hitter = "computer" if serve_toward_player else "player"
+	ball.linear_velocity = Vector3(random.randf_range(-0.55, 0.55), 1.05, direction * 4.4)
 
 
 func _update_score() -> void:
@@ -170,7 +235,7 @@ func _build_world() -> void:
 	var floor_body := _create_static_box("Floor", Vector3(8.0, 0.1, 10.0), Vector3(0.0, -0.1, 0.0), Color("17243a"))
 	floor_body.physics_material_override = _material(0.08, 0.45)
 	var table_body := _create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
-	table_body.physics_material_override = _material(0.68, 0.22)
+	table_body.physics_material_override = _material(0.54, 0.25)
 	var net_body := _create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
 	net_body.physics_material_override = _material(0.12, 0.5)
 	_create_static_box("CenterLine", Vector3(0.018, 0.008, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT + 0.066, 0.0), Color("d9f4ff"), false)
@@ -180,15 +245,15 @@ func _build_world() -> void:
 	ball = RigidBody3D.new()
 	ball.name = "Ball"
 	ball.mass = 0.0027
-	ball.linear_damp = 0.035
-	ball.angular_damp = 0.18
+	ball.linear_damp = 0.06
+	ball.angular_damp = 0.24
 	ball.continuous_cd = true
 	ball.contact_monitor = true
 	ball.max_contacts_reported = 8
-	ball.physics_material_override = _material(0.68, 0.18)
+	ball.physics_material_override = _material(0.56, 0.2)
 	var ball_shape := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
-	sphere.radius = 0.09
+	sphere.radius = 0.04
 	ball_shape.shape = sphere
 	ball.add_child(ball_shape)
 	var ball_mesh := MeshInstance3D.new()
@@ -216,6 +281,11 @@ func _build_world() -> void:
 	status_label.position = Vector2(28.0, 668.0)
 	status_label.add_theme_font_size_override("font_size", 22)
 	ui.add_child(status_label)
+	event_label = Label.new()
+	event_label.position = Vector2(480.0, 88.0)
+	event_label.add_theme_font_size_override("font_size", 30)
+	event_label.add_theme_color_override("font_color", Color("fff06a"))
+	ui.add_child(event_label)
 
 
 func _create_static_box(name_value: String, size: Vector3, position_value: Vector3, color: Color, collision := true) -> StaticBody3D:

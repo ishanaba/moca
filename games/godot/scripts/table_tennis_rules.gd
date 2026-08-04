@@ -14,7 +14,12 @@ static func camera_to_racket(pixel: Vector2, frame_size: Vector2, table_width: f
 
 static func hand_return_velocity(ball_x: float, hand_x: float) -> Vector3:
 	var horizontal_offset := clampf((ball_x - hand_x) / 0.36, -1.0, 1.0)
-	return Vector3(horizontal_offset * 1.8, 1.55, -5.2)
+	return Vector3(horizontal_offset * 1.6, 1.15, -4.8)
+
+
+static func computer_return_velocity(ball_x: float, racket_x: float) -> Vector3:
+	var horizontal_offset := clampf((ball_x - racket_x) / 0.36, -1.0, 1.0)
+	return Vector3(horizontal_offset * 1.4, 1.1, 4.6)
 
 
 static func ball_is_stalled(position: Vector3, velocity: Vector3) -> bool:

@@ -81,6 +81,11 @@ Ball/table restitution is intentionally lossy, the net has very low bounce,
 and a rally watchdog resets balls that stall near mid-table for more than one
 second or remain in play for more than fifteen seconds.
 
+The rally state tracks the last hitter and receiver-side bounces. Wrong-side
+bounces, volleys before the required bounce, and double-bounces award a foul;
+net contacts are called out on screen. Both player and computer returns use
+controlled table-tennis arcs rather than accumulating raw collision energy.
+
 Horizontal wrist movement is the sole positional control and spans the table
 width; racket height and depth stay fixed for stability. The overlay highlights
 the wrist at the end of the YOLO arm chain as the playable contact area.
