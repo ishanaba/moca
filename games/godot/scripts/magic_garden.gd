@@ -245,7 +245,9 @@ func _show_idle() -> void:
 
 
 func _speak(message: String) -> void:
-	if not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
+	# Some Linux/Flatpak builds advertise TTS while their synthesizer is null.
+	# Keep speech opt-in until a working system voice has been configured.
+	if not OS.has_environment("MOCA_ENABLE_TTS") or not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
 		return
 	var voices := DisplayServer.tts_get_voices_for_language("en")
 	if not voices.is_empty():
