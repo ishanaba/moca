@@ -149,6 +149,10 @@ func _on_table_bounce() -> void:
 		_award_point(winner, "FOUL — wrong-side bounce")
 		return
 	receiver_bounces += 1
+	# Normalize the light ball's first rebound into the receiver's playable
+	# zone without allowing repeated rubber-ball hops.
+	if receiver_bounces == 1:
+		ball.linear_velocity.y = clampf(absf(ball.linear_velocity.y), 1.75, 2.15)
 	if receiver_bounces >= 2:
 		_award_point(last_hitter, "DOUBLE BOUNCE")
 
@@ -171,7 +175,7 @@ func _award_point(winner: String, reason: String) -> void:
 
 func _update_opponent(delta: float) -> void:
 	var target := Vector3(clampf(ball.position.x, -1.1, 1.1), clampf(ball.position.y, 0.9, 1.75), -RACKET_Z)
-	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * 5.5))
+	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * 7.0))
 
 
 func _check_point() -> void:
@@ -235,7 +239,7 @@ func _build_world() -> void:
 	var floor_body := _create_static_box("Floor", Vector3(8.0, 0.1, 10.0), Vector3(0.0, -0.1, 0.0), Color("17243a"))
 	floor_body.physics_material_override = _material(0.08, 0.45)
 	var table_body := _create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
-	table_body.physics_material_override = _material(0.54, 0.25)
+	table_body.physics_material_override = _material(0.62, 0.23)
 	var net_body := _create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
 	net_body.physics_material_override = _material(0.12, 0.5)
 	_create_static_box("CenterLine", Vector3(0.018, 0.008, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT + 0.066, 0.0), Color("d9f4ff"), false)
