@@ -33,6 +33,22 @@ Hand tracking is a replaceable tracker-service backend. The default
 implement `moca::HandTracker` and publish palm centers plus optional landmarks
 without changing the game client or wire transport.
 
+### MediaPipe Hand Landmarker experiment
+
+The optional `mediapipe` backend runs Google's MediaPipe Hand Landmarker on
+each camera frame, publishes all 21 landmarks, and associates each detected
+hand with the closest YOLO body-pose wrist. The default remains `wrist`, so the
+original path is unchanged.
+
+```sh
+make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model
+make mediapipe-live
+```
+
+MediaPipe runs on CPU; `MOCA_DEVICE` still controls the YOLO pose device. To
+fall back, use `make live`, or switch back to `main`. The downloaded runtime
+and model live under the gitignored `models/mediapipe/` directory.
+
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 
 ## Containers

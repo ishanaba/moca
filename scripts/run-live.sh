@@ -10,8 +10,13 @@ if [[ ! -f "$model" ]]; then
   exit 1
 fi
 
-"$tracker" --source camera --device /dev/video0 --model "$model" \
-  --inference-device "${MOCA_DEVICE:-GPU}" --serve &
+tracker_args=(--source camera --device "${MOCA_CAMERA:-/dev/video0}" --model "$model"
+  --inference-device "${MOCA_DEVICE:-GPU}" --hand-tracker "${MOCA_HAND_TRACKER:-wrist}" --serve)
+if [[ "${MOCA_HAND_TRACKER:-wrist}" == "mediapipe" ]]; then
+  tracker_args+=(--hand-model "${MOCA_HAND_MODEL:?MOCA_HAND_MODEL is required}"
+    --mediapipe-library "${MOCA_MEDIAPIPE_LIBRARY:?MOCA_MEDIAPIPE_LIBRARY is required}")
+fi
+"$tracker" "${tracker_args[@]}" &
 tracker_pid=$!
 trap 'kill "$tracker_pid" 2>/dev/null || true' EXIT INT TERM
 

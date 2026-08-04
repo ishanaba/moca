@@ -1,4 +1,5 @@
 #include "moca/capture/gstreamer_capture.hpp"
+#include "moca/hand_tracking/mediapipe_hand_tracker.hpp"
 #include "moca/hand_tracking/wrist_hand_tracker.hpp"
 #include "moca/inference/openvino_yolo_pose.hpp"
 #include "moca/tracking/identity_tracker.hpp"
@@ -201,6 +202,8 @@ int main(int argc, char** argv) {
   bool serve = false;
   bool preview = false;
   std::string hand_tracker_name = "wrist";
+  std::string hand_model_path;
+  std::string mediapipe_library_path;
   for (int index = 1; index < argc; ++index) {
     const std::string argument = argv[index];
     if (argument == "--source" && index + 1 < argc) source = argv[++index];
@@ -212,6 +215,8 @@ int main(int argc, char** argv) {
     if (argument == "--serve") serve = true;
     if (argument == "--preview") preview = true;
     if (argument == "--hand-tracker" && index + 1 < argc) hand_tracker_name = argv[++index];
+    if (argument == "--hand-model" && index + 1 < argc) hand_model_path = argv[++index];
+    if (argument == "--mediapipe-library" && index + 1 < argc) mediapipe_library_path = argv[++index];
   }
 
   std::cout << "moca-tracker 0.1.0 source=" << source << " protocol=2\n";
@@ -253,8 +258,21 @@ int main(int argc, char** argv) {
   std::unique_ptr<moca::HandTracker> hand_tracker;
   if (hand_tracker_name == "wrist") {
     hand_tracker = std::make_unique<moca::WristHandTracker>();
+  } else if (hand_tracker_name == "mediapipe") {
+    if (hand_model_path.empty() || mediapipe_library_path.empty()) {
+      std::cerr << "mediapipe hand tracking requires --hand-model and --mediapipe-library\n";
+      return 9;
+    }
+    try {
+      hand_tracker = std::make_unique<moca::MediaPipeHandTracker>(
+          hand_model_path, mediapipe_library_path);
+    } catch (const std::exception& exception) {
+      std::cerr << "hand tracker load failed: " << exception.what() << '\n';
+      return 9;
+    }
   } else if (hand_tracker_name != "none") {
-    std::cerr << "unknown hand tracker: " << hand_tracker_name << " (expected wrist or none)\n";
+    std::cerr << "unknown hand tracker: " << hand_tracker_name
+              << " (expected wrist, mediapipe, or none)\n";
     return 9;
   }
   std::cout << "hand tracker=" << (hand_tracker ? hand_tracker->name() : "none") << '\n';
