@@ -3,8 +3,8 @@ extends Node2D
 const Rules = preload("res://scripts/garden_rules.gd")
 const TargetScript = preload("res://scripts/garden_target.gd")
 const SAFE_RECT := Rect2(128.0, 130.0, 1024.0, 460.0)
-const TRACKING_TIMEOUT_MS := 250
-const TRACKING_STABLE_MS := 500
+const TRACKING_TIMEOUT_MS := 650
+const TRACKING_STABLE_MS := 250
 
 var camera_view: TextureRect
 var camera_texture: ImageTexture
@@ -62,7 +62,7 @@ func _process(delta: float) -> void:
 		return
 	tracking_label.visible = running and not tracking_present
 	if running and not tracking_present:
-		tracking_label.text = "Come back into view to continue"
+		tracking_label.text = "Show your hands inside the frame to continue"
 	if not running or not tracking_present:
 		queue_redraw()
 		return
@@ -107,6 +107,16 @@ func _on_snapshot_updated(observations: Array) -> void:
 	var now_ms := Time.get_ticks_msec()
 	if locked_person_id == 0:
 		locked_person_id = Rules.select_person(observations)
+	else:
+		var locked_person_visible := false
+		for observation_value in observations:
+			if observation_value is Dictionary and int(observation_value.get("person_id", observation_value.get("id", 0))) == locked_person_id:
+				locked_person_visible = true
+				break
+		if not locked_person_visible and now_ms - last_tracking_ms > TRACKING_TIMEOUT_MS:
+			# YOLO identity numbers can change after an occlusion. Reacquire the
+			# strongest visible child instead of remaining locked to a stale ID.
+			locked_person_id = Rules.select_person(observations)
 	var next_hands := {}
 	for observation_value in observations:
 		if not observation_value is Dictionary:
@@ -122,9 +132,12 @@ func _on_snapshot_updated(observations: Array) -> void:
 		if hands.has(hand_id):
 			var old_point: Vector2 = hands[hand_id].point
 			_handle_hand_path(old_point, point, now_ms)
+	if next_hands.is_empty() and now_ms - last_tracking_ms <= TRACKING_TIMEOUT_MS:
+		# Hold the most recent cursor through a short wrist-confidence dropout.
+		return
 	previous_hands = hands
 	hands = next_hands
-	if not hands.is_empty():
+	if not next_hands.is_empty():
 		last_tracking_ms = now_ms
 	queue_redraw()
 
