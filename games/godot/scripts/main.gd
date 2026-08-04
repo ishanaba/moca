@@ -14,6 +14,7 @@ var hand_target := Vector3(0.0, 1.15, RACKET_Z)
 var hand_detected := false
 var last_hand_update_ms := -10000
 var serve_toward_player := true
+var serve_countdown := 0.0
 var ball: RigidBody3D
 var player_racket: AnimatableBody3D
 var player_shape: CollisionShape3D
@@ -35,6 +36,10 @@ func _physics_process(delta: float) -> void:
 		hand_detected = false
 	_update_player_racket(delta)
 	_update_opponent(delta)
+	if serve_countdown > 0.0:
+		serve_countdown -= delta
+		if serve_countdown <= 0.0:
+			_launch_ball()
 	_check_point()
 
 
@@ -90,10 +95,16 @@ func _reset_ball() -> void:
 	ball.rotation = Vector3.ZERO
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
+	ball.freeze = true
+	serve_countdown = 1.25
+	_update_score()
+
+
+func _launch_ball() -> void:
+	ball.freeze = false
 	ball.sleeping = false
 	var direction := 1.0 if serve_toward_player else -1.0
 	ball.linear_velocity = Vector3(random.randf_range(-0.8, 0.8), 1.4, direction * 4.7)
-	_update_score()
 
 
 func _update_score() -> void:
@@ -136,15 +147,19 @@ func _build_world() -> void:
 	ball.physics_material_override = _material(0.88, 0.15)
 	var ball_shape := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
-	sphere.radius = 0.06
+	sphere.radius = 0.09
 	ball_shape.shape = sphere
 	ball.add_child(ball_shape)
 	var ball_mesh := MeshInstance3D.new()
 	var sphere_mesh := SphereMesh.new()
-	sphere_mesh.radius = 0.06
-	sphere_mesh.height = 0.12
+	sphere_mesh.radius = 0.09
+	sphere_mesh.height = 0.18
 	ball_mesh.mesh = sphere_mesh
-	ball_mesh.material_override = _color_material(Color("fff2a8"))
+	var ball_material := _color_material(Color("fff06a"))
+	ball_material.emission_enabled = true
+	ball_material.emission = Color("ffd83d")
+	ball_material.emission_energy_multiplier = 2.5
+	ball_mesh.material_override = ball_material
 	ball.add_child(ball_mesh)
 	add_child(ball)
 	var ui := CanvasLayer.new()
