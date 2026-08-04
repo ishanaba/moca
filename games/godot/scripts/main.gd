@@ -174,8 +174,16 @@ func _award_point(winner: String, reason: String) -> void:
 
 
 func _update_opponent(delta: float) -> void:
-	var target := Vector3(clampf(ball.position.x, -1.1, 1.1), clampf(ball.position.y, 0.9, 1.75), -RACKET_Z)
-	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * 7.0))
+	var target := Vector3(0.0, 1.18, -RACKET_Z)
+	var tracking_speed := 5.0
+	if not ball.freeze and ball.linear_velocity.z < -0.1:
+		var intercept: Vector3 = Rules.predict_intercept(ball.position, ball.linear_velocity, -RACKET_Z)
+		target.x = clampf(intercept.x, -1.08, 1.08)
+		# Ballistic height is less reliable before the table bounce, so keep the
+		# computer inside a plausible ready range instead of snapping vertically.
+		target.y = clampf(intercept.y, 0.98, 1.55)
+		tracking_speed = 10.0
+	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * tracking_speed))
 
 
 func _check_point() -> void:
@@ -321,7 +329,7 @@ func _create_racket(name_value: String, color: Color, position_value: Vector3) -
 	var collision_shape := CollisionShape3D.new()
 	collision_shape.name = "CollisionShape3D"
 	var box_shape := BoxShape3D.new()
-	box_shape.size = Vector3(0.56, 0.54, 0.075)
+	box_shape.size = Vector3(0.64, 0.58, 0.075)
 	collision_shape.shape = box_shape
 	racket.add_child(collision_shape)
 	var mesh_instance := MeshInstance3D.new()

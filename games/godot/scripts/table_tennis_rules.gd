@@ -22,5 +22,18 @@ static func computer_return_velocity(ball_x: float, racket_x: float) -> Vector3:
 	return Vector3(horizontal_offset * 1.35, 2.45, 5.0)
 
 
+static func predict_intercept(position: Vector3, velocity: Vector3, plane_z: float) -> Vector3:
+	if absf(velocity.z) < 0.01:
+		return Vector3(position.x, position.y, plane_z)
+	var arrival_time: float = (plane_z - position.z) / velocity.z
+	if arrival_time <= 0.0:
+		return Vector3(position.x, position.y, plane_z)
+	return Vector3(
+		position.x + velocity.x * arrival_time,
+		position.y + velocity.y * arrival_time - 4.9 * arrival_time * arrival_time,
+		plane_z
+	)
+
+
 static func ball_is_stalled(position: Vector3, velocity: Vector3) -> bool:
 	return absf(position.z) < 0.7 and absf(velocity.z) < 0.9 and position.y < 1.55
