@@ -1,11 +1,11 @@
 class_name GardenRules
 extends RefCounted
 
-const INTRO_END := 15.0
-const SEEDS_END := 65.0
-const BUTTERFLIES_END := 115.0
-const BUBBLES_END := 165.0
-const SESSION_END := 180.0
+const INTRO_END := 5.0
+const SEEDS_END := 17.0
+const BUTTERFLIES_END := 29.0
+const BUBBLES_END := 41.0
+const SESSION_END := 45.0
 
 
 static func stage_for_elapsed(elapsed: float) -> String:

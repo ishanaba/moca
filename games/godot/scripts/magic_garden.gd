@@ -15,6 +15,7 @@ var camera_view: TextureRect
 var camera_texture: ImageTexture
 var target: GardenTarget
 var seed_targets: Array[GardenTarget] = []
+var magic_ball_targets: Array[GardenTarget] = []
 var instruction_label: Label
 var flowers_label: Label
 var butterflies_label: Label
@@ -73,6 +74,8 @@ func _process(delta: float) -> void:
 		target.set_process(running and not manually_paused)
 	for seed_target in seed_targets:
 		seed_target.set_process(running and not manually_paused and not bool(seed_target.get_meta("caught", false)))
+	for magic_ball in magic_ball_targets:
+		magic_ball.set_process(running and not manually_paused)
 	if manually_paused:
 		butterfly_hand_motion = Vector2.ZERO
 		tracking_label.visible = true
@@ -102,14 +105,22 @@ func _process(delta: float) -> void:
 		return
 	if stage == "butterflies" and target:
 		_update_butterfly()
-	if stage == "bubbles" and target:
-		_check_magic_ball_damage()
+	if stage == "bubbles":
+		for magic_ball in magic_ball_targets.duplicate():
+			_check_magic_ball_damage(magic_ball)
 	_update_spoiled_flowers(delta)
 	if stage == "celebration":
 		_update_celebration_flowers(delta)
 	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
+	if stage == "bubbles":
+		for magic_ball in magic_ball_targets.duplicate():
+			if magic_ball.expired():
+				magic_ball_targets.erase(magic_ball)
+				magic_ball.queue_free()
+				_record_outcome(false)
+				_spawn_magic_ball()
 	if stage == "seeds":
 		for seed_target in seed_targets.duplicate():
 			if not bool(seed_target.get_meta("caught", false)) and seed_target.expired():
@@ -213,9 +224,11 @@ func _handle_hand_path(old_point: Vector2, point: Vector2, old_tip: Vector2, new
 		if bool(state.complete):
 			elapsed = Rules.INTRO_END
 			_enter_stage("seeds")
-	elif stage == "bubbles" and target:
-		if Rules.segment_hits_circle(old_tip, new_tip, target.position, target.radius):
-			_collect_target()
+	elif stage == "bubbles":
+		for magic_ball in magic_ball_targets:
+			if Rules.segment_hits_circle(old_tip, new_tip, magic_ball.position, magic_ball.radius):
+				_pop_magic_ball(magic_ball)
+				break
 	elif stage == "seeds":
 		for seed_target in seed_targets:
 			if not bool(seed_target.get_meta("caught", false)) and Rules.segment_hits_circle(old_point, point, seed_target.position, seed_target.radius + 24.0):
@@ -226,7 +239,18 @@ func _handle_hand_path(old_point: Vector2, point: Vector2, old_tip: Vector2, new
 func _collect_target() -> void:
 	if target == null or collecting:
 		return
-	_complete_collection("pop" if stage == "bubbles" else "maze")
+	_complete_collection("maze")
+
+
+func _pop_magic_ball(magic_ball: GardenTarget) -> void:
+	if not magic_ball_targets.has(magic_ball):
+		return
+	magic_ball_targets.erase(magic_ball)
+	magic_ball.queue_free()
+	_play_tone(900.0, 0.11)
+	_record_outcome(true)
+	if stage == "bubbles":
+		_spawn_magic_ball()
 
 
 func _collect_seed(seed_target: GardenTarget) -> void:
@@ -257,9 +281,7 @@ func _finish_seed_collection(seed_target: GardenTarget, bed_position: Vector2) -
 func _complete_collection(sound_kind: String) -> void:
 	if target == null:
 		return
-	if sound_kind == "pop":
-		_play_tone(900.0, 0.11)
-	elif sound_kind == "maze":
+	if sound_kind == "maze":
 		butterflies_fed += 1
 		maze_index += 1
 	_update_counters()
@@ -281,6 +303,9 @@ func _spawn_target() -> void:
 	for seed_target in seed_targets:
 		seed_target.queue_free()
 	seed_targets.clear()
+	for magic_ball in magic_ball_targets:
+		magic_ball.queue_free()
+	magic_ball_targets.clear()
 	collecting = false
 	if stage not in ["seeds", "butterflies", "bubbles"]:
 		return
@@ -288,36 +313,37 @@ func _spawn_target() -> void:
 		_spawn_seed()
 		_spawn_seed()
 		return
+	if stage == "bubbles":
+		for index in 3:
+			_spawn_magic_ball(float(index) * 0.75)
+		return
 	var difficulty := Rules.difficulty_for_history(outcomes)
-	if stage == "butterflies":
-		active_maze_path = _make_maze_path()
+	active_maze_path = _make_maze_path()
 	target = TargetScript.new()
 	target.safe_rect = SAFE_RECT
-	var margin: float = float(difficulty.radius)
-	target.position = active_maze_path[0] if stage == "butterflies" else Vector2(
-		random.randf_range(SAFE_RECT.position.x + margin, SAFE_RECT.end.x - margin),
-		random.randf_range(SAFE_RECT.position.y + margin, SAFE_RECT.end.y - margin)
-	)
+	target.position = active_maze_path[0]
 	var direction := Vector2(random.randf_range(-1.0, 1.0), random.randf_range(-0.55, 0.55))
-	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
-	var target_radius: float = 20.0 if stage == "butterflies" else float(difficulty.radius)
-	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
-	var target_kind := "butterfly" if stage == "butterflies" else "magic_ball"
-	if stage == "bubbles":
-		var target_x := random.randf_range(180.0, 1100.0)
-		if not planted_flowers.is_empty():
-			target_x = planted_flowers[random.randi_range(0, planted_flowers.size() - 1)].x
-		target.position = Vector2(target_x, 95.0)
-		direction = Vector2.DOWN
-		speed = random.randf_range(72.0, 105.0)
-		target_lifetime = 9.0
-	target.configure(target_kind, target_radius, speed, direction, target_lifetime)
+	target.configure("butterfly", 20.0, float(difficulty.speed), direction, 999.0)
 	target.z_index = 5
 	add_child(target)
 	if stage == "butterflies":
 		butterfly_segment = 0
 		butterfly_segment_progress = 0.0
 		butterfly_hand_motion = Vector2.ZERO
+
+
+func _spawn_magic_ball(vertical_offset := 0.0) -> void:
+	var difficulty := Rules.difficulty_for_history(outcomes)
+	var magic_ball := TargetScript.new()
+	magic_ball.safe_rect = SAFE_RECT
+	var target_x := random.randf_range(180.0, 1100.0)
+	if not planted_flowers.is_empty():
+		target_x = planted_flowers[random.randi_range(0, planted_flowers.size() - 1)].x
+	magic_ball.position = Vector2(target_x, 70.0 - vertical_offset * 95.0)
+	magic_ball.configure("magic_ball", float(difficulty.radius), random.randf_range(72.0, 105.0), Vector2.DOWN, 11.0)
+	magic_ball.z_index = 5
+	magic_ball_targets.append(magic_ball)
+	add_child(magic_ball)
 
 
 func _spawn_seed() -> void:
@@ -347,16 +373,20 @@ func _make_maze_path() -> Array:
 	return path
 
 
-func _check_magic_ball_damage() -> void:
+func _check_magic_ball_damage(magic_ball: GardenTarget) -> void:
+	if not magic_ball_targets.has(magic_ball):
+		return
 	for index in planted_flowers.size():
-		if target.position.distance_to(planted_flowers[index]) <= target.radius + 28.0:
+		if magic_ball.position.distance_to(planted_flowers[index]) <= magic_ball.radius + 28.0:
 			spoiled_flowers.append({"position": planted_flowers[index], "age": 0.0})
 			planted_flowers.remove_at(index)
 			_play_tone(260.0, 0.3)
 			_play_tone(180.0, 0.38)
 			_record_outcome(false)
 			_update_counters()
-			_spawn_target()
+			magic_ball_targets.erase(magic_ball)
+			magic_ball.queue_free()
+			_spawn_magic_ball()
 			return
 
 
@@ -490,6 +520,9 @@ func _finish_session() -> void:
 	for seed_target in seed_targets:
 		seed_target.queue_free()
 	seed_targets.clear()
+	for magic_ball in magic_ball_targets:
+		magic_ball.queue_free()
+	magic_ball_targets.clear()
 	instruction_label.text = ""
 	_speak("Great job! You grew a magical garden. Press space when you want to play the story again.")
 	pause_button.visible = false
@@ -499,7 +532,7 @@ func _finish_session() -> void:
 func _show_idle() -> void:
 	instruction_label.text = ""
 	_speak("Welcome to Magic Garden Rescue. Press space to begin the story.")
-	time_label.text = "Timer: 3:00"
+	time_label.text = "Timer: 0:45"
 	_update_counters()
 	pause_button.visible = false
 	replay_button.visible = false
