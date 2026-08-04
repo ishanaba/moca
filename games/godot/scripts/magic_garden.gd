@@ -14,6 +14,7 @@ const MAZE_TEMPLATES := [
 var camera_view: TextureRect
 var camera_texture: ImageTexture
 var target: GardenTarget
+var seed_targets: Array[GardenTarget] = []
 var instruction_label: Label
 var flowers_label: Label
 var butterflies_label: Label
@@ -46,7 +47,6 @@ var maze_index := 0
 var active_maze_path: Array = []
 var planted_flowers: Array[Vector2] = []
 var spoiled_flowers: Array[Dictionary] = []
-var pending_flower_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -69,7 +69,9 @@ func _process(delta: float) -> void:
 		tracking_stable_since_ms = -1
 	var tracking_ready := tracking_present and now_ms - tracking_stable_since_ms >= TRACKING_STABLE_MS
 	if target:
-		target.set_process(running and not manually_paused and tracking_ready)
+		target.set_process(running and not manually_paused)
+	for seed_target in seed_targets:
+		seed_target.set_process(running and not manually_paused and not bool(seed_target.get_meta("caught", false)))
 	if manually_paused:
 		butterfly_hand_motion = Vector2.ZERO
 		tracking_label.visible = true
@@ -79,15 +81,17 @@ func _process(delta: float) -> void:
 	tracking_label.visible = running and not tracking_present
 	if running and not tracking_present:
 		tracking_label.text = "Show your hands inside the frame to continue"
-	if not running or not tracking_present:
+	if not running:
 		butterfly_hand_motion = Vector2.ZERO
 		queue_redraw()
 		return
-	if not tracking_ready:
+	if not tracking_present:
+		butterfly_hand_motion = Vector2.ZERO
+	elif not tracking_ready:
 		tracking_label.visible = true
 		tracking_label.text = "Ready..."
-		return
-	tracking_label.visible = false
+	else:
+		tracking_label.visible = false
 	elapsed += delta
 	var next_stage := Rules.stage_for_elapsed(elapsed)
 	if next_stage != stage:
@@ -103,6 +107,13 @@ func _process(delta: float) -> void:
 	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
+	if stage == "seeds":
+		for seed_target in seed_targets.duplicate():
+			if not bool(seed_target.get_meta("caught", false)) and seed_target.expired():
+				_record_outcome(false)
+				seed_targets.erase(seed_target)
+				seed_target.queue_free()
+				_spawn_seed()
 	time_label.text = "%d:%02d" % [int((Rules.SESSION_END - elapsed) / 60.0), int(Rules.SESSION_END - elapsed) % 60]
 	queue_redraw()
 
@@ -196,35 +207,48 @@ func _handle_hand_path(old_point: Vector2, point: Vector2, old_tip: Vector2, new
 	elif stage == "bubbles" and target:
 		if Rules.segment_hits_circle(old_tip, new_tip, target.position, target.radius):
 			_collect_target()
-	elif stage == "seeds" and target and Rules.segment_hits_circle(old_point, point, target.position, target.radius + 24.0):
-		_collect_target()
+	elif stage == "seeds":
+		for seed_target in seed_targets:
+			if not bool(seed_target.get_meta("caught", false)) and Rules.segment_hits_circle(old_point, point, seed_target.position, seed_target.radius + 24.0):
+				_collect_seed(seed_target)
+				break
 
 
 func _collect_target() -> void:
 	if target == null or collecting:
 		return
-	if stage == "seeds":
-		collecting = true
-		target.set_process(false)
-		var bed_position := Vector2(random.randf_range(100.0, 1180.0), 650.0)
-		pending_flower_position = bed_position
-		var tween := create_tween().set_parallel(true)
-		tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-		tween.tween_property(target, "position", bed_position, 0.65)
-		tween.tween_property(target, "scale", Vector2(0.35, 0.35), 0.65)
-		tween.chain().tween_callback(_complete_collection.bind("plant"))
-		return
 	_complete_collection("pop" if stage == "bubbles" else "maze")
+
+
+func _collect_seed(seed_target: GardenTarget) -> void:
+	seed_target.set_meta("caught", true)
+	seed_target.set_process(false)
+	var bed_position := Vector2(random.randf_range(100.0, 1180.0), 650.0)
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_property(seed_target, "position", bed_position, 0.65)
+	tween.tween_property(seed_target, "scale", Vector2(0.35, 0.35), 0.65)
+	tween.chain().tween_callback(_finish_seed_collection.bind(seed_target, bed_position))
+
+
+func _finish_seed_collection(seed_target: GardenTarget, bed_position: Vector2) -> void:
+	if not is_instance_valid(seed_target):
+		return
+	seed_targets.erase(seed_target)
+	seed_target.queue_free()
+	planted_flowers.append(bed_position)
+	_play_tone(520.0, 0.22)
+	_play_tone(720.0, 0.28)
+	_record_outcome(true)
+	_update_counters()
+	if stage == "seeds":
+		_spawn_seed()
 
 
 func _complete_collection(sound_kind: String) -> void:
 	if target == null:
 		return
-	if sound_kind == "plant":
-		planted_flowers.append(pending_flower_position)
-		_play_tone(520.0, 0.22)
-		_play_tone(720.0, 0.28)
-	elif sound_kind == "pop":
+	if sound_kind == "pop":
 		_play_tone(900.0, 0.11)
 	elif sound_kind == "maze":
 		butterflies_fed += 1
@@ -245,8 +269,15 @@ func _spawn_target() -> void:
 	if target:
 		target.queue_free()
 	target = null
+	for seed_target in seed_targets:
+		seed_target.queue_free()
+	seed_targets.clear()
 	collecting = false
 	if stage not in ["seeds", "butterflies", "bubbles"]:
+		return
+	if stage == "seeds":
+		_spawn_seed()
+		_spawn_seed()
 		return
 	var difficulty := Rules.difficulty_for_history(outcomes)
 	if stage == "butterflies":
@@ -262,7 +293,7 @@ func _spawn_target() -> void:
 	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
 	var target_radius: float = 36.0 if stage == "butterflies" else float(difficulty.radius)
 	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
-	var target_kind := "seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "magic_ball")
+	var target_kind := "butterfly" if stage == "butterflies" else "magic_ball"
 	if stage == "bubbles":
 		var target_x := random.randf_range(180.0, 1100.0)
 		if not planted_flowers.is_empty():
@@ -278,6 +309,21 @@ func _spawn_target() -> void:
 		butterfly_segment = 0
 		butterfly_segment_progress = 0.0
 		butterfly_hand_motion = Vector2.ZERO
+
+
+func _spawn_seed() -> void:
+	var difficulty := Rules.difficulty_for_history(outcomes)
+	var seed := TargetScript.new()
+	seed.safe_rect = SAFE_RECT
+	var radius: float = float(difficulty.radius)
+	seed.position = Vector2(
+		random.randf_range(SAFE_RECT.position.x + radius, SAFE_RECT.end.x - radius),
+		random.randf_range(SAFE_RECT.position.y + radius, SAFE_RECT.end.y - radius)
+	)
+	seed.configure("seed", radius, 0.0, Vector2.ZERO, float(difficulty.lifetime))
+	seed.z_index = 5
+	seed_targets.append(seed)
+	add_child(seed)
 
 
 func _make_maze_path() -> Array:
@@ -543,14 +589,26 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([arrow_end + path_direction * 12.0, arrow_end - path_direction * 18.0 + arrow_side, arrow_end - path_direction * 18.0 - arrow_side]), Color("fff06a"))
 	for hand_value in hands.values():
 		var point: Vector2 = hand_value.point
-		draw_circle(point, 29.0, Color(1.0, 0.92, 0.3, 0.3))
-		draw_arc(point, 32.0, 0.0, TAU, 36, Color("fff6a3"), 6.0, true)
-		if stage == "bubbles":
+		if stage == "seeds":
+			# An open scoop replaces the generic hand circle for catching seeds.
+			draw_line(point + Vector2(0.0, -5.0), point + Vector2(0.0, -70.0), Color("d9f6ff"), 10.0, true)
+			draw_arc(point, 34.0, 0.0, PI, 24, Color("fff06a"), 10.0, true)
+		elif stage == "butterflies":
+			var wind_direction := Vector2.RIGHT
+			if target and butterfly_segment < active_maze_path.size() - 1:
+				wind_direction = (active_maze_path[butterfly_segment + 1] - active_maze_path[butterfly_segment]).normalized()
+			var wind_side := wind_direction.rotated(PI * 0.5)
+			for offset in [-18.0, 0.0, 18.0]:
+				draw_line(point - wind_direction * 48.0 + wind_side * offset, point + wind_direction * 42.0 + wind_side * offset, Color(0.65, 0.95, 1.0, 0.82), 6.0, true)
+		elif stage == "bubbles":
 			var tip: Vector2 = hand_value.get("tip", point + Vector2(0.0, -70.0))
 			draw_line(point, tip, Color("d9f6ff"), 10.0, true)
 			var direction := (tip - point).normalized()
 			var side := direction.rotated(PI * 0.5) * 10.0
 			draw_colored_polygon(PackedVector2Array([tip + direction * 15.0, tip - direction * 12.0 + side, tip - direction * 12.0 - side]), Color("fff06a"))
+		else:
+			draw_circle(point, 29.0, Color(1.0, 0.92, 0.3, 0.3))
+			draw_arc(point, 32.0, 0.0, TAU, 36, Color("fff6a3"), 6.0, true)
 	if stage == "welcome":
 		var arrow_color := Color(1.0, 0.95, 0.45, 0.9)
 		draw_line(Vector2(480.0, 210.0), Vector2(800.0, 210.0), arrow_color, 10.0, true)
