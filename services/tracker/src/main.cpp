@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
     }
     try {
       hand_tracker = std::make_unique<moca::MediaPipeHandTracker>(
-          hand_model_path, mediapipe_library_path, mediapipe_delegate, 2, 0.35F, !hand_only);
+          hand_model_path, mediapipe_library_path, mediapipe_delegate, 2, 0.25F, !hand_only);
     } catch (const std::exception& exception) {
       std::cerr << "hand tracker load failed: " << exception.what() << '\n';
       return 9;

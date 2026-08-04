@@ -78,6 +78,11 @@ Fast palm motion produces a short forward racket stroke, giving Jolt a real
 kinematic contact velocity to transfer to the ball despite the single camera's
 lack of measured depth.
 
+Horizontal palm movement is the primary control and spans the table width.
+Vertical response is intentionally reduced for stability. The game locks onto
+one MediaPipe hand until it disappears, preventing racket jumps when a second
+hand briefly enters the camera.
+
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 
 ## Containers

@@ -14,6 +14,7 @@ var hand_target := Vector3(0.0, 1.15, RACKET_Z)
 var previous_hand_target := Vector3(0.0, 1.15, RACKET_Z)
 var last_tracking_ms := -1
 var swing_strength := 0.0
+var active_hand_id := -1
 var hand_detected := false
 var last_hand_update_ms := -10000
 var serve_toward_player := true
@@ -37,6 +38,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
 		hand_detected = false
+		active_hand_id = -1
 		last_tracking_ms = -1
 		swing_strength = 0.0
 	_update_player_racket(delta)
@@ -53,13 +55,21 @@ func _on_snapshot_updated(players: Array) -> void:
 	last_hand_update_ms = Time.get_ticks_msec()
 	hand_detected = not players.is_empty()
 	if not hand_detected:
+		active_hand_id = -1
 		last_tracking_ms = -1
 		swing_strength = 0.0
 		return
 	var strongest: Dictionary = players[0]
+	var active_found := false
 	for observation: Dictionary in players:
+		if int(observation.get("id", -1)) == active_hand_id:
+			strongest = observation
+			active_found = true
+			break
 		if float(observation.get("confidence", 0.0)) > float(strongest.get("confidence", 0.0)):
 			strongest = observation
+	if not active_found:
+		active_hand_id = int(strongest.get("id", 1))
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
 	var new_target := Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
 	var now_ms := Time.get_ticks_msec()
@@ -79,7 +89,7 @@ func _update_player_racket(delta: float) -> void:
 	if not hand_detected:
 		status_label.text = "Show your hand"
 		return
-	status_label.text = "SWING" if swing_strength > 0.2 else "Hand detected — racket active"
+	status_label.text = "SWING" if swing_strength > 0.2 else "Move hand LEFT / RIGHT to control the blue racket"
 	var old_position := player_racket.position
 	var stroke_target := hand_target
 	stroke_target.z -= swing_strength * 0.34
@@ -222,7 +232,7 @@ func _create_racket(name_value: String, color: Color, position_value: Vector3) -
 	var collision_shape := CollisionShape3D.new()
 	collision_shape.name = "CollisionShape3D"
 	var box_shape := BoxShape3D.new()
-	box_shape.size = Vector3(0.42, 0.52, 0.075)
+	box_shape.size = Vector3(0.56, 0.54, 0.075)
 	collision_shape.shape = box_shape
 	racket.add_child(collision_shape)
 	var mesh_instance := MeshInstance3D.new()
