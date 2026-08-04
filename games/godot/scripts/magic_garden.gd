@@ -245,6 +245,8 @@ func _show_idle() -> void:
 
 
 func _speak(message: String) -> void:
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
+		return
 	var voices := DisplayServer.tts_get_voices_for_language("en")
 	if not voices.is_empty():
 		DisplayServer.tts_stop()
