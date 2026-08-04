@@ -67,4 +67,4 @@ func _test_table_tennis_mapping() -> void:
 	_expect(absf(center.x) < 0.001, "camera center should map to table center")
 	_expect(is_equal_approx(center.z, 2.15), "racket should stay on its constrained depth plane")
 	var edge := TableTennisRulesForTest.camera_to_racket(Vector2(1280, 720), Vector2(1280, 720), 2.74, 2.15)
-	_expect(edge.x > 1.0 and edge.y < 1.0, "camera edge should map inside racket bounds")
+	_expect(edge.x > 1.0 and is_equal_approx(edge.y, 1.18), "wrist X should move the racket while height stays fixed")

@@ -76,10 +76,11 @@ Fast wrist motion produces a short forward racket stroke, giving Jolt a real
 kinematic contact velocity to transfer to the ball despite the single camera's
 lack of measured depth.
 
-Horizontal wrist movement is the primary control and spans the table width.
-Vertical response is intentionally reduced for stability. The game locks onto
-one YOLO wrist until it disappears, preventing racket jumps when a second wrist
-briefly enters the camera.
+Horizontal wrist movement is the sole positional control and spans the table
+width; racket height and depth stay fixed for stability. The overlay attaches a
+handle and paddle head directly to the wrist at the end of the YOLO arm chain.
+The game locks onto one YOLO wrist until it disappears, preventing racket jumps
+when a second wrist briefly enters the camera.
 
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 

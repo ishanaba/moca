@@ -7,7 +7,6 @@ static func camera_to_racket(pixel: Vector2, frame_size: Vector2, table_width: f
 		return Vector3(0.0, 1.15, racket_z)
 	var normalized := Vector2(pixel.x / frame_size.x, pixel.y / frame_size.y)
 	var x := lerpf(-table_width * 0.52, table_width * 0.52, normalized.x)
-	# Keep vertical control deliberately shallow: horizontal hand movement is
-	# the primary table-tennis control and should not wobble the racket height.
-	var y := lerpf(1.80, 0.95, normalized.y)
-	return Vector3(clampf(x, -table_width * 0.52, table_width * 0.52), clampf(y, 0.78, 2.2), racket_z)
+	# The single-camera control is intentionally one-dimensional: wrist X moves
+	# the racket across the baseline while height and depth remain stable.
+	return Vector3(clampf(x, -table_width * 0.52, table_width * 0.52), 1.18, racket_z)
