@@ -4,10 +4,10 @@ Updated: 2026-08-03
 
 ## Complete
 
-- [x] Modular monorepo layout for tracker and web.
+- [x] Modular monorepo layout for tracker and Godot client.
 - [x] Separate Docker images and root Compose configuration.
 - [x] Exact `/dev/video0` GStreamer smoke-test command documented.
-- [x] TrackingFrame v2 schema, fixtures, Python model validation, and TypeScript validation.
+- [x] TrackingFrame v2 schema, generated C++ protocol types, and native decoder validation.
 - [x] Deterministic replay and live WebSocket source with newest-frame delivery.
 - [x] Identity retention/spatial seeding, One Euro filtering, calibration, prediction, loss fade, and segment-circle collision primitives.
 - [x] Playable two-player versus/co-op vertical slice with pointer controls for development.
@@ -32,5 +32,3 @@ Updated: 2026-08-03
 - [x] Add deterministic replay with a bundled two-player fixture and runtime simulation/replay switching.
 - [x] Run the headless smoke tests and a clean replay startup with Godot 4.7.1.
 - [ ] Document and validate Linux export commands.
-
-Unreal client development is paused; the existing plugin remains in the repository as historical/prototype work.

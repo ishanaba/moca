@@ -90,9 +90,9 @@ Published guidance maps cleanly onto this project:
   precisely what this project is for.** Benchmark both.
 
 
-MediaPipe is demoted to two supporting roles: **Hand Landmarker + Gesture Recognizer for
-single-player menu navigation at close range**, and an in-browser single-player source that
-lets you develop on the Mac without running the sidecar.
+MediaPipe is reserved for a supporting role: **Hand Landmarker + Gesture Recognizer for
+single-player hand input at close range**, implemented behind the tracker service's
+pluggable hand-tracking boundary.
 
 
 ### New requirements multi-player introduces
@@ -132,12 +132,12 @@ Since the benchmark is the deliverable rather than a byproduct:
 ## 3. Architecture
 
 
-The Python sidecar is now the **primary and mandatory** tracker, not an optional lab bench.
+The C++ tracker service is the **primary and mandatory** perception process.
 
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ TRACKER SERVICE (Python, mandatory)                          │
+│ TRACKER SERVICE (C++20, mandatory)                           │
 │                                                              │
 │  camera → backend → multi-person keypoints → ID tracker      │
 │                                                              │
@@ -152,19 +152,10 @@ The Python sidecar is now the **primary and mandatory** tracker, not an optional
                             │  TrackingFrame over WebSocket
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ INPUT LAYER (TypeScript)                                     │
-│  per-player smoothing · per-player calibration               │
-│  latency compensation · blade cursors · gestures             │
-└───────────────────────────┬──────────────────────────────────┘
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│ GAME LAYER (Phaser 4)                                        │
-│  fruit-ninja (multiplayer) · benchmark overlay · shell       │
+│ GODOT 4 CLIENT                                               │
+│  Protobuf decoder · smoothing · blade cursors · game         │
+│  time attack · camera background · local record              │
 └──────────────────────────────────────────────────────────────┘
-
-
-  (dev-only side path: in-browser MediaPipe source, single player,
-   so the Mac can run the game without the sidecar)
 ```
 
 
@@ -211,24 +202,13 @@ Two rules that are easy to get wrong:
 
 
 ```
-motion-playground/
-├── services/tracker/            # Python — the heart of the project
-│   ├── backends/                # one module per model, common interface
-│   ├── tracking/                # ByteTrack / ID assignment
-│   ├── server.py                # WebSocket
-│   ├── bench.py                 # headless benchmark runner
-│   └── capture/                 # reference footage recording tools
-├── apps/web/                    # Vite + TypeScript + Phaser 4
-│   └── src/
-│       ├── tracking/            # TrackingSource iface, WebSocketSource,
-│       │                        #   MediaPipeWorkerSource (dev only)
-│       ├── input/               # OneEuroFilter, per-player calibration,
-│       │                        #   PlaySpaceMapper, BladeCursor
-│       ├── games/{shell,fruit-ninja}/
-│       └── diagnostics/         # HUD, latency probe, live benchmark overlay
+moca/
+├── services/tracker/            # C++ capture, inference, tracking, transport
+├── protocol/proto/              # Protobuf v2 wire contract
+├── games/godot/                 # sole game client and native GDExtension
+├── tools/models/                # offline model preparation only
 ├── models/                      # .xml / .onnx / .task (gitignored)
-└── docs/
-    └── benchmarks.md            # ← the primary deliverable
+└── docs/                        # plans, progress, and benchmarks
 ```
 
 
@@ -241,30 +221,27 @@ motion-playground/
 ### Where the models actually run
 
 
-**All perception models run in one place: the Python tracker service, locally on the Linux
-laptop.** No cloud, no network calls at inference time. The browser runs zero models in the
-target configuration — it receives normalized keypoints over a localhost WebSocket and does
-nothing but smooth, map, and render them.
+**All perception models run in one place: the C++ tracker service, locally on the Linux
+edge device.** No cloud or network calls are required at inference time. Godot receives
+normalized keypoints over a localhost WebSocket and handles input smoothing and rendering.
 
 
 ```
 ┌─ Linux laptop (Intel i7 + Arc) ──────────────────────────────┐
 │                                                              │
-│  PROCESS A — Python tracker service   ← ALL MODELS RUN HERE  │
+│  PROCESS A — C++ tracker service      ← ALL MODELS RUN HERE  │
 │    camera → pose model → ID tracker → WebSocket              │
 │    device: Arc GPU via OpenVINO (CPU fallback, NPU if avail) │
 │                                │                             │
 │                                │ localhost WS, keypoints only│
 │                                ▼                             │
-│  PROCESS B — Browser / Phaser 4       ← NO MODELS            │
+│  PROCESS B — Godot 4 game             ← NO MODELS            │
 │    smoothing → calibration → rendering                       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 
-Process A owns the camera exclusively; Process B never opens it. **Only exception:** on the
-M3 Mac during development, the browser may run MediaPipe on Metal via WebGL for a solo-player
-path, so game code can be worked on without the sidecar. Development convenience only.
+Process A owns the camera exclusively; Process B never opens it directly.
 
 
 ### Stack
@@ -279,10 +256,9 @@ path, so game code can be worked on without the sidecar. Development convenience
 | Capture | `opencv-python` | Apache 2.0 | V4L2 capture and preprocessing |
 | Transport | `websockets` | BSD | Newest-frame-wins, no queueing |
 | Env management | `uv`, Python 3.11/3.12 | MIT/Apache 2.0 | System 3.14 is too new for MediaPipe wheels |
-| Game engine | **Phaser 4** | MIT | Stable since April 2026; rebuilt WebGL2 renderer. Phaser 3 is feature-frozen. Ships agent skill files in `skills/`. |
-| Build tooling | Vite + TypeScript | MIT | Fast HMR; trivial Mac → Linux deploy |
+| Game engine | **Godot 4.7.1** | MIT | Lightweight native 2D client with the Compatibility renderer and C++ GDExtension support |
+| Build tooling | CMake + godot-cpp | MIT | Builds the tracker, protocol bridge, tests, and native Godot extension |
 | Close-range hands | MediaPipe Tasks, or RTMPose 21-kp hand | Apache 2.0 | Menu gestures. `rtmlib` also offers a 21-keypoint hand model, keeping everything in one family. |
-| Desktop wrapper | Tauri | MIT/Apache 2.0 | Small binary, kiosk mode, Linux-friendly |
 
 
 Two `rtmlib` features worth exploiting: the **21-keypoint hand model** (an alternative to
@@ -354,7 +330,7 @@ Prove the hardware and the room before writing code.
    **Caveat:** wide-angle lenses introduce barrel distortion that skews keypoints toward the
    frame edges. Budget for `cv2.calibrateCamera` and undistortion **before** inference —
    this is a required step, not a refinement.
-6. **Browser acceleration:** `chrome://gpu` reports hardware-accelerated WebGL2.
+6. **Godot rendering:** the Compatibility renderer starts with hardware acceleration.
 
 
 **Exit criteria:** OpenVINO enumerates GPU (and NPU if present); camera does 1280×720@30
@@ -536,7 +512,7 @@ Deliberately small, given the evaluation priority.
 ### Phase 7 — Packaging and writeup
 
 
-- Tauri kiosk wrapper; systemd user unit for the tracker service; sleep inhibition.
+- Packaged Godot application; systemd user unit for the tracker service; sleep inhibition.
 - Finish `docs/benchmarks.md`. **This is the deliverable.** Include the person-count scaling
   curves, the device comparison, the sustained-versus-burst thermal story, and a clear
   recommendation.
@@ -643,8 +619,7 @@ wants. **Caveat:** optical flow itself degrades under motion blur, so this compo
 
 Researched to calibrate expectations. **Their motion engine is fully proprietary** — Play OS
 is a closed system, no third-party software, no public OSS attribution page. The only
-confirmed open-source component is **AOSP**, which Play OS is built on. Their game engine is
-**Unity** (proprietary), exposed to developers via the Nex Motion Developer Kit plugin.
+confirmed open-source component is **AOSP**, which Play OS is built on.
 
 
 The published hardware specs proved more useful than a library list:
@@ -696,8 +671,8 @@ The published hardware specs proved more useful than a library list:
 |---|---|
 | Proprietary Nex Motion Engine | RTMPose / RTMO via `rtmlib` |
 | 3.2 TOPS Amlogic NPU | Intel Arc GPU via OpenVINO |
-| Unity + MDK plugin | Phaser 4 + `TrackingSource` interface |
-| Play OS (AOSP) | Linux + Tauri kiosk wrapper |
+| Proprietary game plugin | Godot 4 + native GDExtension |
+| Dedicated play OS | Linux + packaged Godot application |
 | Ultra wide-angle camera | Wide-angle USB webcam + OpenCV undistortion |
 | Active-player auto-detection | ByteTrack via `supervision` |
 
@@ -740,7 +715,5 @@ The published hardware specs proved more useful than a library list:
   fidelity, §6.1), and 60+ fps. Mono is worth considering for light sensitivity if the
   grayscale benchmark passes. The built-in webcam almost certainly satisfies none of these.
   Resolve after Phase 0 measures the actual gap.
-
-
 
 

@@ -7,7 +7,6 @@ Updated: 2026-08-03
 - [x] C++ newest-value primitive and identity retention.
 - [x] Native core tests; compiled and passed with GCC 13.3.
 - [x] Tracker replay-mode executable skeleton.
-- [x] Unreal runtime plugin boundary and Blueprint snapshots.
 - [x] Python-only model export/manifest tool.
 - [x] Separate tracker and model-tool containers.
 - [x] Bounded GStreamer appsink capture with newest-frame dropping.
@@ -20,7 +19,5 @@ Updated: 2026-08-03
 - [x] Implement a playable Godot round with fruit, bombs, scoring, collision sweeps, and replay.
 - [x] Validate the Godot project, replay startup, and smoke tests with Godot 4.7.1.
 - [ ] Arc hardware benchmarks.
-
-The Unreal boundary is retained as completed historical work, but further Unreal client work is paused because the current development machine does not have an 8 GB GPU. Godot is the active client target.
 
 CMake discovers Protobuf and OpenVINO, generates the v2 C++ types, and the native CMake/CTest suite passes. Godot 4.7.1 is installed through Flatpak; the pinned `godot-cpp` binding is built against its generated API, engine smoke tests pass, and the live camera path starts without script errors. Python `pytest` remains unavailable, though the model-tool manifest smoke test passes directly.

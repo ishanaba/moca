@@ -11,10 +11,6 @@ __pycache__/
 !/calibration/.gitkeep
 /artifacts/*
 !/artifacts/.gitkeep
-/games/unreal/Binaries/
-/games/unreal/DerivedDataCache/
-/games/unreal/Intermediate/
-/games/unreal/Saved/
 /games/godot/.godot/
 /games/godot/bin/*.so
 *.o

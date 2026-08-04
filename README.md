@@ -49,6 +49,5 @@ The tracker container receives `/dev/video0` and `/dev/dri`. Godot runs natively
 - `services/tracker`: capture, inference, identity tracking, and transport.
 - `tools/models`: Python-only model export and metadata tooling.
 - `games/godot`: active Godot 4 client with simulation, replay, and live tracking modes.
-- `games/unreal/Plugins/MocaTracking`: paused Unreal prototype retained for reference.
 
 See [implementation plan](docs/implementation-plan.md) and [progress](docs/progress.md).

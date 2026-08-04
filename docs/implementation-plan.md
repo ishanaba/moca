@@ -3,10 +3,10 @@
 ## Milestone 1 — runnable vertical slice
 
 - Establish separate tracker, protocol, input, and game modules.
-- Define `TrackingFrame` v2 schema and matching Python/TypeScript validators.
+- Define `TrackingFrame` v2 schema and generated C++ protocol types.
 - Provide replay and WebSocket sources, newest-frame semantics, filtering, calibration, and blade trails.
 - Deliver a complete versus/co-op round with fruit, bombs, scoring, results, and replay.
-- Package tracker and web separately and compose them for local deployment.
+- Package the tracker and Godot client for local deployment.
 
 ## Milestone 1.5 — Godot client pivot
 
