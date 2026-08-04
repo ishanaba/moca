@@ -13,7 +13,8 @@ namespace moca {
 class MediaPipeHandTracker final : public HandTracker {
  public:
   MediaPipeHandTracker(std::string model_path, std::string library_path,
-                       int max_hands = 4, float confidence = 0.35F);
+                       std::string delegate = "CPU", int max_hands = 4,
+                       float confidence = 0.35F);
   ~MediaPipeHandTracker() override;
   MediaPipeHandTracker(const MediaPipeHandTracker&) = delete;
   MediaPipeHandTracker& operator=(const MediaPipeHandTracker&) = delete;

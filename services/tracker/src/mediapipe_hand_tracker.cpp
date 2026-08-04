@@ -40,7 +40,8 @@ struct MediaPipeHandTracker::State {
                                        mp::MpImagePtr*, char**);
   using FreeImage = void (*)(mp::MpImagePtr);
 
-  State(const std::string& model, const std::string& library_path, int max_hands, float confidence) {
+  State(const std::string& model, const std::string& library_path, const std::string& delegate,
+        int max_hands, float confidence) {
     library = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!library) throw std::runtime_error("cannot load MediaPipe runtime " + library_path + ": " + dlerror());
     try {
@@ -54,6 +55,11 @@ struct MediaPipeHandTracker::State {
       mp::HandLandmarkerOptions options{};
       options.base_options.model_asset_path = model.c_str();
       options.base_options.host_system = mp::HOST_SYSTEM_LINUX;
+      if (delegate == "GPU") {
+        options.base_options.delegate = mp::GPU;
+      } else if (delegate != "CPU") {
+        throw std::invalid_argument("unknown MediaPipe delegate: " + delegate + " (expected CPU or GPU)");
+      }
       options.running_mode = mp::IMAGE;
       options.num_hands = max_hands;
       options.min_hand_detection_confidence = confidence;
@@ -89,8 +95,8 @@ struct MediaPipeHandTracker::State {
 };
 
 MediaPipeHandTracker::MediaPipeHandTracker(std::string model_path, std::string library_path,
-                                           int max_hands, float confidence)
-    : state_(std::make_unique<State>(model_path, library_path, max_hands, confidence)) {}
+                                           std::string delegate, int max_hands, float confidence)
+    : state_(std::make_unique<State>(model_path, library_path, delegate, max_hands, confidence)) {}
 MediaPipeHandTracker::~MediaPipeHandTracker() = default;
 std::string MediaPipeHandTracker::name() const { return "mediapipe-hand-landmarker"; }
 

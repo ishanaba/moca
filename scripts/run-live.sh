@@ -14,7 +14,8 @@ tracker_args=(--source camera --device "${MOCA_CAMERA:-/dev/video0}" --model "$m
   --inference-device "${MOCA_DEVICE:-GPU}" --hand-tracker "${MOCA_HAND_TRACKER:-wrist}" --serve)
 if [[ "${MOCA_HAND_TRACKER:-wrist}" == "mediapipe" ]]; then
   tracker_args+=(--hand-model "${MOCA_HAND_MODEL:?MOCA_HAND_MODEL is required}"
-    --mediapipe-library "${MOCA_MEDIAPIPE_LIBRARY:?MOCA_MEDIAPIPE_LIBRARY is required}")
+    --mediapipe-library "${MOCA_MEDIAPIPE_LIBRARY:?MOCA_MEDIAPIPE_LIBRARY is required}"
+    --mediapipe-delegate "${MOCA_MEDIAPIPE_DELEGATE:-GPU}")
 fi
 "$tracker" "${tracker_args[@]}" &
 tracker_pid=$!

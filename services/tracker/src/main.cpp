@@ -204,6 +204,7 @@ int main(int argc, char** argv) {
   std::string hand_tracker_name = "wrist";
   std::string hand_model_path;
   std::string mediapipe_library_path;
+  std::string mediapipe_delegate = "CPU";
   for (int index = 1; index < argc; ++index) {
     const std::string argument = argv[index];
     if (argument == "--source" && index + 1 < argc) source = argv[++index];
@@ -217,6 +218,7 @@ int main(int argc, char** argv) {
     if (argument == "--hand-tracker" && index + 1 < argc) hand_tracker_name = argv[++index];
     if (argument == "--hand-model" && index + 1 < argc) hand_model_path = argv[++index];
     if (argument == "--mediapipe-library" && index + 1 < argc) mediapipe_library_path = argv[++index];
+    if (argument == "--mediapipe-delegate" && index + 1 < argc) mediapipe_delegate = argv[++index];
   }
 
   std::cout << "moca-tracker 0.1.0 source=" << source << " protocol=2\n";
@@ -265,7 +267,7 @@ int main(int argc, char** argv) {
     }
     try {
       hand_tracker = std::make_unique<moca::MediaPipeHandTracker>(
-          hand_model_path, mediapipe_library_path);
+          hand_model_path, mediapipe_library_path, mediapipe_delegate);
     } catch (const std::exception& exception) {
       std::cerr << "hand tracker load failed: " << exception.what() << '\n';
       return 9;

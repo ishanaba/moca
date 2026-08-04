@@ -45,9 +45,11 @@ make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model
 make mediapipe-live
 ```
 
-MediaPipe runs on CPU; `MOCA_DEVICE` still controls the YOLO pose device. To
-fall back, use `make live`, or switch back to `main`. The downloaded runtime
-and model live under the gitignored `models/mediapipe/` directory.
+MediaPipe uses its GPU delegate by default in `make mediapipe-live`; set
+`MOCA_MEDIAPIPE_DELEGATE=CPU` to compare its CPU path. `MOCA_DEVICE` separately
+controls the YOLO pose device. To fall back, use `make live`, or switch back to
+`main`. The downloaded runtime and model live under the gitignored
+`models/mediapipe/` directory.
 
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 
