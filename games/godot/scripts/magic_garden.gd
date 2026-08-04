@@ -532,7 +532,7 @@ func _finish_session() -> void:
 func _show_idle() -> void:
 	instruction_label.text = ""
 	_speak("Welcome to Magic Garden Rescue. Press space to begin the story.")
-	time_label.text = "Timer: 0:45"
+	time_label.text = "Timer: 2:25"
 	_update_counters()
 	pause_button.visible = false
 	replay_button.visible = false

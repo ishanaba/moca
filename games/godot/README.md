@@ -16,7 +16,8 @@ godot --path games/godot -- --live=ws://127.0.0.1:8765
 
 The child sees a mirrored live camera feed and uses either YOLO-tracked wrist to
 catch seeds, pop falling magic balls with a pointed wand, and finally guide a
-butterfly through multiple mazes during a guided 45-second session. Caught seeds animate into the
+butterfly through multiple mazes. Each main activity—planting, magic-ball defense,
+and butterfly guidance—lasts 45 seconds. Caught seeds animate into the
 flower bed, and the UI counts flowers planted and butterflies fed. During the
 second stage, three magic balls fall at once toward planted flowers: wand pops protect the
 garden, while a missed ball visibly spoils and removes one flower. Planting,
@@ -33,7 +34,7 @@ Flowers planted, butterflies fed, and the timer share a top-right statistics
 panel. Activity instructions are narrated as a short story instead of being
 shown as text; the tracking warning remains on the left when hands disappear.
 The closing celebration plays a bright chord and rains rotating, colorful
-flowers across the live camera view for fifteen seconds.
+flowers across the live camera view during the closing celebration.
 
 The butterfly remains centered inside a narrow maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with
