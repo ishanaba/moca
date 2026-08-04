@@ -25,7 +25,9 @@ and Escape exits. Run the camera experience from the repository root with
 The butterfly remains centered inside a maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with
 the same direction; mismatched movement stops it. A yellow arrow shows the
-direction required for the current section.
+direction required for the current section. Three different mazes run in
+sequence, and each final corridor enters one of the flowers actually planted
+during the seed stage.
 
 ## Test
 

@@ -5,9 +5,10 @@ const TargetScript = preload("res://scripts/garden_target.gd")
 const SAFE_RECT := Rect2(128.0, 130.0, 1024.0, 460.0)
 const TRACKING_TIMEOUT_MS := 650
 const TRACKING_STABLE_MS := 250
-const MAZE_POINTS := [
-	Vector2(155.0, 500.0), Vector2(155.0, 180.0), Vector2(405.0, 180.0),
-	Vector2(590.0, 365.0), Vector2(785.0, 180.0), Vector2(1085.0, 180.0),
+const MAZE_TEMPLATES := [
+	[Vector2(150.0, 170.0), Vector2(150.0, 390.0), Vector2(390.0, 390.0), Vector2(560.0, 220.0), Vector2(760.0, 420.0), Vector2(1010.0, 420.0)],
+	[Vector2(1080.0, 170.0), Vector2(1080.0, 360.0), Vector2(830.0, 360.0), Vector2(650.0, 180.0), Vector2(470.0, 360.0), Vector2(230.0, 360.0)],
+	[Vector2(180.0, 180.0), Vector2(430.0, 180.0), Vector2(590.0, 340.0), Vector2(750.0, 180.0), Vector2(1030.0, 180.0), Vector2(1030.0, 450.0)],
 ]
 
 var camera_view: TextureRect
@@ -40,6 +41,10 @@ var collecting := false
 var butterfly_segment := 0
 var butterfly_segment_progress := 0.0
 var butterfly_hand_motion := Vector2.ZERO
+var maze_index := 0
+var active_maze_path: Array = []
+var planted_flowers: Array[Vector2] = []
+var pending_flower_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -197,6 +202,7 @@ func _collect_target() -> void:
 		collecting = true
 		target.set_process(false)
 		var bed_position := Vector2(random.randf_range(100.0, 1180.0), 650.0)
+		pending_flower_position = bed_position
 		var tween := create_tween().set_parallel(true)
 		tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tween.tween_property(target, "position", bed_position, 0.65)
@@ -212,10 +218,13 @@ func _complete_collection(sound_kind: String) -> void:
 	stars += 1
 	stars_label.text = "★ %d" % stars
 	if sound_kind == "plant":
+		planted_flowers.append(pending_flower_position)
 		_play_tone(520.0, 0.22)
 		_play_tone(720.0, 0.28)
 	elif sound_kind == "pop":
 		_play_tone(900.0, 0.11)
+	elif sound_kind == "maze":
+		maze_index += 1
 	_record_outcome(true)
 	collecting = false
 	_spawn_target()
@@ -235,10 +244,12 @@ func _spawn_target() -> void:
 	if stage not in ["seeds", "butterflies", "bubbles"]:
 		return
 	var difficulty := Rules.difficulty_for_history(outcomes)
+	if stage == "butterflies":
+		active_maze_path = _make_maze_path()
 	target = TargetScript.new()
 	target.safe_rect = SAFE_RECT
 	var margin: float = float(difficulty.radius)
-	target.position = MAZE_POINTS[0] if stage == "butterflies" else Vector2(
+	target.position = active_maze_path[0] if stage == "butterflies" else Vector2(
 		random.randf_range(SAFE_RECT.position.x + margin, SAFE_RECT.end.x - margin),
 		random.randf_range(SAFE_RECT.position.y + margin, SAFE_RECT.end.y - margin)
 	)
@@ -255,12 +266,24 @@ func _spawn_target() -> void:
 		butterfly_hand_motion = Vector2.ZERO
 
 
+func _make_maze_path() -> Array:
+	var path: Array = MAZE_TEMPLATES[maze_index % MAZE_TEMPLATES.size()].duplicate()
+	var flower_position := Vector2(640.0, 650.0)
+	if not planted_flowers.is_empty():
+		flower_position = planted_flowers[maze_index % planted_flowers.size()]
+	# The corridor stays above the established flower bed until its final
+	# vertical/diagonal approach into the selected planted flower.
+	path.append(Vector2(flower_position.x, 510.0))
+	path.append(flower_position)
+	return path
+
+
 func _update_butterfly() -> void:
-	if butterfly_segment >= MAZE_POINTS.size() - 1:
+	if butterfly_segment >= active_maze_path.size() - 1:
 		_complete_collection("maze")
 		return
-	var start: Vector2 = MAZE_POINTS[butterfly_segment]
-	var finish: Vector2 = MAZE_POINTS[butterfly_segment + 1]
+	var start: Vector2 = active_maze_path[butterfly_segment]
+	var finish: Vector2 = active_maze_path[butterfly_segment + 1]
 	var segment := finish - start
 	# Incorrect movement is consumed without moving. Matching vertical,
 	# horizontal, or diagonal movement advances along the current corridor.
@@ -270,18 +293,20 @@ func _update_butterfly() -> void:
 	while butterfly_segment_progress >= segment.length():
 		butterfly_segment_progress -= segment.length()
 		butterfly_segment += 1
-		if butterfly_segment >= MAZE_POINTS.size() - 1:
-			target.position = MAZE_POINTS[-1]
+		if butterfly_segment >= active_maze_path.size() - 1:
+			target.position = active_maze_path[-1]
 			_complete_collection("maze")
 			return
-		start = MAZE_POINTS[butterfly_segment]
-		finish = MAZE_POINTS[butterfly_segment + 1]
+		start = active_maze_path[butterfly_segment]
+		finish = active_maze_path[butterfly_segment + 1]
 		segment = finish - start
 	target.position = start + segment.normalized() * butterfly_segment_progress
 
 
 func _enter_stage(next_stage: String) -> void:
 	stage = next_stage
+	if stage == "butterflies":
+		maze_index = 0
 	wave_direction = 0
 	wave_switches = 0
 	wave_last_ms = -1
@@ -304,6 +329,8 @@ func _start_session() -> void:
 	manually_paused = false
 	elapsed = 0.0
 	stars = 0
+	planted_flowers.clear()
+	maze_index = 0
 	stage = "idle"
 	spoken_stage = ""
 	outcomes.clear()
@@ -435,24 +462,24 @@ func _make_button(label_text: String, button_position: Vector2, callback: Callab
 func _draw() -> void:
 	# Garden progress grows along the bottom without obscuring the child.
 	draw_rect(Rect2(0.0, 590.0, 1280.0, 130.0), Color(0.05, 0.32, 0.14, 0.72))
-	var flower_count := mini(stars, 28)
-	for index in flower_count:
-		var x := 55.0 + fmod(float(index * 173), 1170.0)
-		var y := 675.0 - float((index * 31) % 54)
+	for index in planted_flowers.size():
+		var x := planted_flowers[index].x
+		var y := planted_flowers[index].y
 		var flower_color := Color.from_hsv(fmod(float(index) * 0.13, 1.0), 0.65, 1.0)
 		draw_line(Vector2(x, 710.0), Vector2(x, y), Color("5bd16f"), 7.0, true)
 		for petal in 6:
 			var angle := float(petal) * TAU / 6.0
 			draw_circle(Vector2(x, y) + Vector2.from_angle(angle) * 13.0, 10.0, flower_color)
 		draw_circle(Vector2(x, y), 8.0, Color("ffe66d"))
-	if stage == "butterflies":
-		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.12, 0.08, 0.24, 0.9), 130.0, true)
-		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.55, 0.9, 0.55, 0.48), 100.0, true)
-		draw_circle(MAZE_POINTS[0], 38.0, Color(0.35, 0.9, 0.55, 0.9))
-		draw_circle(MAZE_POINTS[-1], 45.0, Color(1.0, 0.82, 0.2, 0.9))
-		draw_string(ThemeDB.fallback_font, MAZE_POINTS[0] + Vector2(-38.0, 8.0), "START", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
-		if target and butterfly_segment < MAZE_POINTS.size() - 1:
-			var path_direction: Vector2 = (MAZE_POINTS[butterfly_segment + 1] - MAZE_POINTS[butterfly_segment]).normalized()
+	if stage == "butterflies" and not active_maze_path.is_empty():
+		draw_polyline(PackedVector2Array(active_maze_path), Color(0.12, 0.08, 0.24, 0.9), 130.0, true)
+		draw_polyline(PackedVector2Array(active_maze_path), Color(0.55, 0.9, 0.55, 0.48), 100.0, true)
+		draw_circle(active_maze_path[0], 38.0, Color(0.35, 0.9, 0.55, 0.9))
+		draw_circle(active_maze_path[-1], 45.0, Color(1.0, 0.82, 0.2, 0.45))
+		draw_string(ThemeDB.fallback_font, active_maze_path[0] + Vector2(-38.0, 8.0), "START", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(560.0, 115.0), "MAZE %d" % (maze_index + 1), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color("fff6a3"))
+		if target and butterfly_segment < active_maze_path.size() - 1:
+			var path_direction: Vector2 = (active_maze_path[butterfly_segment + 1] - active_maze_path[butterfly_segment]).normalized()
 			var arrow_end := target.position + path_direction * 68.0
 			draw_line(target.position, arrow_end, Color("fff06a"), 9.0, true)
 			var arrow_side := path_direction.rotated(PI * 0.5) * 13.0
