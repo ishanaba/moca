@@ -45,7 +45,8 @@ path is unchanged.
 The game pointer uses the MediaPipe palm centroid rather than the wrist. A
 target scores only when the palm overlaps it while at least three fingers are
 detected as curled into a grip; an open hand can move the pointer but cannot
-collect a target.
+collect a target. When MediaPipe loses the hand, its pointer disappears and
+cannot collide or score until the hand is detected again.
 
 ```sh
 make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model
