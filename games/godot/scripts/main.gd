@@ -1,6 +1,7 @@
 extends Node3D
 
 const Rules = preload("res://scripts/table_tennis_rules.gd")
+const HandOverlayScript = preload("res://scripts/hand_overlay.gd")
 const TABLE_WIDTH := 2.74
 const TABLE_LENGTH := 5.0
 const TABLE_HEIGHT := 0.76
@@ -25,6 +26,7 @@ var player_shape: CollisionShape3D
 var opponent_racket: AnimatableBody3D
 var score_label: Label
 var status_label: Label
+var hand_overlay: HandOverlay
 var random := RandomNumberGenerator.new()
 
 
@@ -55,6 +57,8 @@ func _on_snapshot_updated(players: Array) -> void:
 	last_hand_update_ms = Time.get_ticks_msec()
 	hand_detected = not players.is_empty()
 	if not hand_detected:
+		if hand_overlay:
+			hand_overlay.set_arm([])
 		active_hand_id = -1
 		last_tracking_ms = -1
 		swing_strength = 0.0
@@ -70,6 +74,8 @@ func _on_snapshot_updated(players: Array) -> void:
 			strongest = observation
 	if not active_found:
 		active_hand_id = int(strongest.get("id", 1))
+	if hand_overlay:
+		hand_overlay.set_arm(strongest.get("landmarks", []))
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
 	var new_target := Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
 	var now_ms := Time.get_ticks_msec()
@@ -193,6 +199,8 @@ func _build_world() -> void:
 	add_child(ball)
 	var ui := CanvasLayer.new()
 	add_child(ui)
+	hand_overlay = HandOverlayScript.new()
+	ui.add_child(hand_overlay)
 	score_label = Label.new()
 	score_label.position = Vector2(548.0, 24.0)
 	score_label.add_theme_font_size_override("font_size", 42)

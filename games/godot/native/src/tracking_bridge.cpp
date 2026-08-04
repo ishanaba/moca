@@ -38,9 +38,13 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
     for (const auto& hand : frame.hands()) {
       if (!hand.has_person_id() || hand.person_id() != person.id() || !hand.has_center()) continue;
       has_explicit_hand = true;
-      snapshot.players.push_back({hand.id(), std::clamp(hand.center().x(), 0.0F, 1.0F),
-                                  std::clamp(hand.center().y(), 0.0F, 1.0F),
-                                  hand.confidence(), hand.gripping()});
+      BladeSnapshot observation{hand.id(), std::clamp(hand.center().x(), 0.0F, 1.0F),
+                                std::clamp(hand.center().y(), 0.0F, 1.0F),
+                                hand.confidence(), hand.gripping(), {}};
+      for (const auto& point : hand.landmarks())
+        observation.landmarks.emplace_back(std::clamp(point.x(), 0.0F, 1.0F),
+                                           std::clamp(point.y(), 0.0F, 1.0F));
+      snapshot.players.push_back(std::move(observation));
     }
     if (has_explicit_hand) continue;
     // COCO-17 wrists are 9/10 and elbows are 7/8. Prefer the stronger arm and
@@ -60,7 +64,7 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
     }
     snapshot.players.push_back({person.id(), std::clamp(hand_x, 0.0F, 1.0F),
                                 std::clamp(hand_y, 0.0F, 1.0F),
-                                wrist.confidence() * person.confidence(), false});
+                                wrist.confidence() * person.confidence(), false, {}});
   }
   // Full-frame hand detectors can publish before a body/person is visible.
   // Expose every unassociated hand directly as a playable input.
@@ -68,7 +72,7 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
     if (hand.has_person_id() || !hand.has_center()) continue;
     snapshot.players.push_back(
         {hand.id(), std::clamp(hand.center().x(), 0.0F, 1.0F),
-         std::clamp(hand.center().y(), 0.0F, 1.0F), hand.confidence(), hand.gripping()});
+         std::clamp(hand.center().y(), 0.0F, 1.0F), hand.confidence(), hand.gripping(), {}});
   }
   latest_.replace(std::move(snapshot));
   return true;

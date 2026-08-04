@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace moca::godot {
@@ -16,6 +17,7 @@ struct BladeSnapshot {
   float y;
   float confidence;
   bool gripping;
+  std::vector<std::pair<float, float>> landmarks;
 };
 
 struct TrackingSnapshot {

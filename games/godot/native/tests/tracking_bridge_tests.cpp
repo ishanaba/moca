@@ -72,6 +72,9 @@ int main() {
   hand->mutable_center()->set_x(0.6F);
   hand->mutable_center()->set_y(0.7F);
   hand->mutable_center()->set_confidence(0.95F);
+  for (int index = 0; index < 3; ++index) {
+    hand->add_landmarks()->set_x(0.1F * static_cast<float>(index + 1));
+  }
   assert(bridge.ingest(bytes(envelope.SerializeAsString())));
   const auto second = bridge.newer_than(first->first);
   assert(second && second->first == 2 && second->second.capture_time_us == 2345);
@@ -80,6 +83,7 @@ int main() {
   assert(second->second.players[0].y == 0.7F);
   assert(second->second.players[0].confidence == 0.95F);
   assert(second->second.players[0].gripping);
+  assert(second->second.players[0].landmarks.size() == 3);
 
   frame->clear_persons();
   frame->clear_hands();

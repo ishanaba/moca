@@ -2,6 +2,7 @@
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/packed_vector2_array.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -49,6 +50,10 @@ bool TrackingDecoder::ingest(const ::godot::PackedByteArray& payload) {
     value["y"] = player.y;
     value["confidence"] = player.confidence;
     value["gripping"] = player.gripping;
+    ::godot::PackedVector2Array landmarks;
+    for (const auto& point : player.landmarks)
+      landmarks.push_back({point.first, point.second});
+    value["landmarks"] = landmarks;
     players.push_back(value);
   }
   ::godot::Dictionary result;

@@ -109,11 +109,15 @@ func _poll_live() -> void:
 		_native_sequence = int(snapshot.sequence)
 		var players: Array = []
 		for player in snapshot.players:
+			var landmarks: Array[Vector2] = []
+			for point: Vector2 in player.landmarks:
+				landmarks.append(Vector2((1.0 - point.x) * 1280.0, point.y * 720.0))
 			players.append({
 				"id": int(player.id),
 				"blade": Vector2((1.0 - float(player.x)) * 1280.0, float(player.y) * 720.0),
 				"confidence": float(player.confidence),
 				"gripping": bool(player.gripping),
+				"landmarks": landmarks,
 			})
 		latest_players = players
 		snapshot_updated.emit(latest_players)
