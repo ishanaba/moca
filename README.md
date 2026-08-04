@@ -93,7 +93,8 @@ crossing instead of chasing the ball's current position, giving it time to make
 a natural return after the legal first bounce. It never volleys: its collider
 activates only after that bounce, and the simple opponent completes its return
 at the baseline before a second bounce. Computer serves vary their starting
-position, lateral angle, height, and speed.
+position, lateral angle, height, and speed within a safe envelope that clears
+the net and lands comfortably inside the player's half.
 
 Horizontal wrist movement is the sole positional control and spans the table
 width; racket height and depth stay fixed for stability. The overlay highlights

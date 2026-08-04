@@ -244,10 +244,13 @@ func _launch_ball() -> void:
 	var direction := 1.0 if serve_toward_player else -1.0
 	last_hitter = "computer" if serve_toward_player else "player"
 	if serve_toward_player:
-		# Mix wide, body, and opposite-corner computer serves.
-		ball.position.x = random.randf_range(-0.55, 0.55)
-		ball.linear_velocity = Vector3(random.randf_range(-1.45, 1.45), random.randf_range(0.9, 1.35), random.randf_range(4.15, 4.75))
+		# Start clear of the net and vary only within a safe service envelope.
+		# This still produces body and angled serves, but keeps the first bounce
+		# comfortably inside the player's half.
+		ball.position = Vector3(random.randf_range(-0.35, 0.35), 1.45, -0.75)
+		ball.linear_velocity = Vector3(random.randf_range(-0.75, 0.75), random.randf_range(0.9, 1.12), random.randf_range(4.25, 4.55))
 	else:
+		ball.position = Vector3(0.0, 1.45, 0.75)
 		ball.linear_velocity = Vector3(random.randf_range(-0.7, 0.7), 1.1, direction * 4.4)
 
 
