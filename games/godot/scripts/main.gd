@@ -11,6 +11,9 @@ const WIN_SCORE := 11
 var player_score := 0
 var opponent_score := 0
 var hand_target := Vector3(0.0, 1.15, RACKET_Z)
+var previous_hand_target := Vector3(0.0, 1.15, RACKET_Z)
+var last_tracking_ms := -1
+var swing_strength := 0.0
 var hand_detected := false
 var last_hand_update_ms := -10000
 var serve_toward_player := true
@@ -34,7 +37,10 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
 		hand_detected = false
+		last_tracking_ms = -1
+		swing_strength = 0.0
 	_update_player_racket(delta)
+	swing_strength = move_toward(swing_strength, 0.0, delta * 4.5)
 	_update_opponent(delta)
 	if serve_countdown > 0.0:
 		serve_countdown -= delta
@@ -47,13 +53,24 @@ func _on_snapshot_updated(players: Array) -> void:
 	last_hand_update_ms = Time.get_ticks_msec()
 	hand_detected = not players.is_empty()
 	if not hand_detected:
+		last_tracking_ms = -1
+		swing_strength = 0.0
 		return
 	var strongest: Dictionary = players[0]
 	for observation: Dictionary in players:
 		if float(observation.get("confidence", 0.0)) > float(strongest.get("confidence", 0.0)):
 			strongest = observation
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
-	hand_target = Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
+	var new_target := Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
+	var now_ms := Time.get_ticks_msec()
+	if last_tracking_ms > 0:
+		var sample_seconds := maxf(float(now_ms - last_tracking_ms) / 1000.0, 0.001)
+		var hand_speed := new_target.distance_to(previous_hand_target) / sample_seconds
+		if hand_speed > 0.45:
+			swing_strength = maxf(swing_strength, clampf((hand_speed - 0.45) / 3.5, 0.0, 1.0))
+	previous_hand_target = new_target
+	last_tracking_ms = now_ms
+	hand_target = new_target
 
 
 func _update_player_racket(delta: float) -> void:
@@ -62,9 +79,11 @@ func _update_player_racket(delta: float) -> void:
 	if not hand_detected:
 		status_label.text = "Show your hand"
 		return
-	status_label.text = "Hand detected — racket active"
+	status_label.text = "SWING" if swing_strength > 0.2 else "Hand detected — racket active"
 	var old_position := player_racket.position
-	player_racket.position = player_racket.position.lerp(hand_target, minf(1.0, delta * 18.0))
+	var stroke_target := hand_target
+	stroke_target.z -= swing_strength * 0.34
+	player_racket.position = player_racket.position.lerp(stroke_target, minf(1.0, delta * 18.0))
 	var velocity := (player_racket.position - old_position) / maxf(delta, 0.001)
 	player_racket.rotation.z = clampf(-velocity.x * 0.035, -0.45, 0.45)
 	player_racket.rotation.x = clampf(velocity.y * 0.025, -0.35, 0.35)

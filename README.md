@@ -74,6 +74,10 @@ continuous-collision `RigidBody3D`. This single-camera mapping is isolated in
 `table_tennis_rules.gd` so calibrated stereo depth can replace it without
 changing the physics scene.
 
+Fast palm motion produces a short forward racket stroke, giving Jolt a real
+kinematic contact velocity to transfer to the ball despite the single camera's
+lack of measured depth.
+
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 
 ## Containers
