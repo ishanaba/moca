@@ -39,6 +39,9 @@ func load_data(data: Dictionary) -> Error:
 				return ERR_INVALID_DATA
 			players.append({
 				"id": int(input_player.id),
+				"hand_id": int(input_player.get("hand_id", input_player.id)),
+				"person_id": int(input_player.get("person_id", 1)),
+				"side": str(input_player.get("side", "unknown")),
 				"blade": Vector2(float(blade[0]), float(blade[1])),
 				"confidence": float(input_player.get("confidence", 1.0)),
 			})

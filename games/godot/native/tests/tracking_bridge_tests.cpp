@@ -57,6 +57,8 @@ int main() {
   assert(first->second.source == "replay@test");
   assert(first->second.players.size() == 1);
   assert(first->second.players[0].id == 7);
+  assert(first->second.players[0].person_id == 7);
+  assert(first->second.players[0].side == "left");
   assert(first->second.players[0].x == 0.25F);
   assert(first->second.players[0].y == 0.5F);
   assert(first->second.players[0].confidence > 0.71F);
@@ -65,6 +67,7 @@ int main() {
 
   frame->set_capture_time_us(2345);
   auto* hand = frame->add_hands();
+  hand->set_id(13);
   hand->set_person_id(7);
   hand->set_confidence(0.95F);
   hand->set_source("test-hand");
@@ -80,6 +83,8 @@ int main() {
   assert(second && second->first == 2 && second->second.capture_time_us == 2345);
   assert(second->second.players.size() == 1);
   assert(second->second.players[0].x == 0.6F);
+  assert(second->second.players[0].person_id == 7);
+  assert(second->second.players[0].side == "left");
   assert(second->second.players[0].y == 0.7F);
   assert(second->second.players[0].confidence == 0.95F);
   assert(second->second.players[0].gripping);
@@ -97,5 +102,7 @@ int main() {
   const auto third = bridge.newer_than(second->first);
   assert(third && third->second.players.size() == 1);
   assert(third->second.players[0].id == 42);
+  assert(third->second.players[0].person_id == 0);
+  assert(third->second.players[0].side == "unknown");
   assert(third->second.players[0].x == 0.2F);
 }

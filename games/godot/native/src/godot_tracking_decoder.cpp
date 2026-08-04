@@ -46,6 +46,9 @@ bool TrackingDecoder::ingest(const ::godot::PackedByteArray& payload) {
   for (const auto& player : snapshot->second.players) {
     ::godot::Dictionary value;
     value["id"] = player.id;
+    value["hand_id"] = player.id;
+    value["person_id"] = player.person_id;
+    value["side"] = player.side.c_str();
     value["x"] = player.x;
     value["y"] = player.y;
     value["confidence"] = player.confidence;

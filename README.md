@@ -64,6 +64,18 @@ controls the YOLO pose device. To fall back, use `make live`, or switch back to
 `main`. The downloaded runtime and model live under the gitignored
 `models/mediapipe/` directory.
 
+### Magic Garden Rescue
+
+The active Godot client is a three-minute, failure-free AR movement game for
+one child. A mirrored live camera view is overlaid with seeds, butterflies,
+bubbles, hand cursors, stars, and a growing procedural garden. YOLO26n-pose
+supplies two stable wrist inputs; swept-path collision catches fast touches and
+a direction-change detector recognizes waves. Tracking loss pauses the session.
+
+Run it with `make magic-garden-live`. Mouse simulation and the bundled two-hand
+replay support development without a camera. The previous table-tennis
+controller remains in `games/godot/scripts/main.gd` and on its checkpoint branch.
+
 ### 3D table tennis prototype
 
 The `feature/mediapipe-table-tennis-3d` branch replaces the 2D target game with

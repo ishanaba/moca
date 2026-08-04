@@ -38,7 +38,8 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
     for (const auto& hand : frame.hands()) {
       if (!hand.has_person_id() || hand.person_id() != person.id() || !hand.has_center()) continue;
       has_explicit_hand = true;
-      BladeSnapshot observation{hand.id(), std::clamp(hand.center().x(), 0.0F, 1.0F),
+      BladeSnapshot observation{hand.id(), hand.person_id(), hand.id() % 2 == 0 ? "right" : "left",
+                                std::clamp(hand.center().x(), 0.0F, 1.0F),
                                 std::clamp(hand.center().y(), 0.0F, 1.0F),
                                 hand.confidence(), hand.gripping(), {}};
       for (const auto& point : hand.landmarks())
@@ -62,7 +63,8 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
       hand_x += (wrist.x() - elbow.x()) * extension;
       hand_y += (wrist.y() - elbow.y()) * extension;
     }
-    snapshot.players.push_back({person.id(), std::clamp(hand_x, 0.0F, 1.0F),
+    snapshot.players.push_back({person.id(), person.id(), use_right ? "right" : "left",
+                                std::clamp(hand_x, 0.0F, 1.0F),
                                 std::clamp(hand_y, 0.0F, 1.0F),
                                 wrist.confidence() * person.confidence(), false, {}});
   }
@@ -71,7 +73,7 @@ bool TrackingBridge::ingest(std::span<const std::byte> payload) {
   for (const auto& hand : frame.hands()) {
     if (hand.has_person_id() || !hand.has_center()) continue;
     snapshot.players.push_back(
-        {hand.id(), std::clamp(hand.center().x(), 0.0F, 1.0F),
+        {hand.id(), 0, "unknown", std::clamp(hand.center().x(), 0.0F, 1.0F),
          std::clamp(hand.center().y(), 0.0F, 1.0F), hand.confidence(), hand.gripping(), {}});
   }
   latest_.replace(std::move(snapshot));

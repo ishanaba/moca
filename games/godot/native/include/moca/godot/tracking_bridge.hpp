@@ -13,6 +13,8 @@ namespace moca::godot {
 
 struct BladeSnapshot {
   std::uint32_t id;
+  std::uint32_t person_id;
+  std::string side;
   float x;
   float y;
   float confidence;

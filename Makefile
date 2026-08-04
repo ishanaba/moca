@@ -1,4 +1,4 @@
-.PHONY: configure build test tracker camera-smoke compose model-test godot godot-test live table-tennis-live mediapipe-setup mediapipe-live
+.PHONY: configure build test tracker camera-smoke compose model-test godot godot-test live table-tennis-live magic-garden-live mediapipe-setup mediapipe-live
 configure:
 	cmake --preset dev
 build:
@@ -20,6 +20,7 @@ godot-test:
 live: build
 	./scripts/run-live.sh
 table-tennis-live: live
+magic-garden-live: live
 mediapipe-setup:
 	./scripts/setup-mediapipe.sh
 mediapipe-live: build

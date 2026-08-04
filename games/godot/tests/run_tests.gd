@@ -3,6 +3,7 @@ extends SceneTree
 const GameRulesForTest = preload("res://scripts/game_rules.gd")
 const ReplaySourceForTest = preload("res://scripts/replay_source.gd")
 const TableTennisRulesForTest = preload("res://scripts/table_tennis_rules.gd")
+const GardenRulesForTest = preload("res://scripts/garden_rules.gd")
 
 var failures := 0
 
@@ -13,6 +14,7 @@ func _init() -> void:
 	_test_scoring()
 	_test_replay()
 	_test_table_tennis_mapping()
+	_test_garden_rules()
 	if failures == 0:
 		print("Godot smoke tests passed")
 	quit(failures)
@@ -57,6 +59,7 @@ func _test_replay() -> void:
 	_expect(error == OK, "valid replay should load")
 	_expect(replay.advance(0.25)[0].blade == Vector2(10, 20), "replay should hold the current frame")
 	_expect(replay.advance(0.25)[0].blade == Vector2(30, 40), "replay should advance at the recorded time")
+	_expect(int(replay.advance(0.0)[0].person_id) == 1, "replay hands should retain their child identity")
 	_expect(replay.advance(0.5)[0].blade == Vector2(10, 20), "replay should loop deterministically")
 	_expect(replay.load_data({"frames": []}) == ERR_INVALID_DATA, "empty replay should be rejected")
 	_expect(replay.load_data({"duration_ms": 500, "frames": [{"time_ms": 500, "players": []}]}) == ERR_INVALID_DATA, "duration must extend past the final frame")
@@ -82,3 +85,27 @@ func _test_table_tennis_mapping() -> void:
 	_expect(is_equal_approx(intercept.z, -2.0), "predicted interception should remain on the racket plane")
 	_expect(TableTennisRulesForTest.ball_is_stalled(Vector3(0.0, 1.0, 0.1), Vector3(0.0, 0.2, 0.2)), "slow mid-table ball should be detected as stalled")
 	_expect(not TableTennisRulesForTest.ball_is_stalled(Vector3(0.0, 1.0, 1.5), Vector3(0.0, 0.2, -4.0)), "active rally ball should not be detected as stalled")
+
+
+func _test_garden_rules() -> void:
+	_expect(GardenRulesForTest.stage_for_elapsed(0.0) == "welcome", "garden should begin with the welcome")
+	_expect(GardenRulesForTest.stage_for_elapsed(15.0) == "seeds", "seed stage should follow the welcome")
+	_expect(GardenRulesForTest.stage_for_elapsed(65.0) == "butterflies", "butterfly stage should follow seeds")
+	_expect(GardenRulesForTest.stage_for_elapsed(115.0) == "bubbles", "bubble stage should follow butterflies")
+	_expect(GardenRulesForTest.stage_for_elapsed(165.0) == "celebration", "garden should end with a celebration")
+	_expect(GardenRulesForTest.stage_for_elapsed(180.0) == "complete", "garden should complete at three minutes")
+	_expect(GardenRulesForTest.segment_hits_circle(Vector2.ZERO, Vector2(100.0, 0.0), Vector2(50.0, 5.0), 10.0), "fast wrist paths should hit crossed targets")
+	var easy := GardenRulesForTest.difficulty_for_history([false, false, true, false])
+	var hard := GardenRulesForTest.difficulty_for_history([true, true, true, true, true, true, true, false])
+	_expect(float(easy.radius) == 105.0 and float(easy.speed) == 35.0, "low success should make targets larger and slower")
+	_expect(float(hard.radius) == 70.0 and float(hard.speed) == 100.0, "high success should make targets smaller and faster")
+	var selected := GardenRulesForTest.select_person([
+		{"person_id": 1, "confidence": 0.4},
+		{"person_id": 1, "confidence": 0.5},
+		{"person_id": 2, "confidence": 0.7},
+	])
+	_expect(selected == 1, "both hands should contribute to child selection")
+	var wave := GardenRulesForTest.next_wave_state(0, 0, -1, 700.0, 100)
+	wave = GardenRulesForTest.next_wave_state(int(wave.direction), int(wave.switches), int(wave.last_ms), -700.0, 400)
+	wave = GardenRulesForTest.next_wave_state(int(wave.direction), int(wave.switches), int(wave.last_ms), 700.0, 700)
+	_expect(bool(wave.complete), "three quick direction changes should complete a wave")
