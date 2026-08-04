@@ -109,3 +109,6 @@ func _test_garden_rules() -> void:
 	wave = GardenRulesForTest.next_wave_state(int(wave.direction), int(wave.switches), int(wave.last_ms), -700.0, 400)
 	wave = GardenRulesForTest.next_wave_state(int(wave.direction), int(wave.switches), int(wave.last_ms), 700.0, 700)
 	_expect(bool(wave.complete), "three quick direction changes should complete a wave")
+	var welcome_wave := GardenRulesForTest.next_wave_state(0, 0, -1, 300.0, 100, 2, 260.0)
+	welcome_wave = GardenRulesForTest.next_wave_state(int(welcome_wave.direction), int(welcome_wave.switches), int(welcome_wave.last_ms), -300.0, 450, 2, 260.0)
+	_expect(bool(welcome_wave.complete), "a gentle left-right wave should open the garden")

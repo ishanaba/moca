@@ -67,11 +67,11 @@ static func select_person(hands: Array) -> int:
 	return best_person
 
 
-static func next_wave_state(previous_direction: int, switches: int, last_switch_ms: int, horizontal_speed: float, now_ms: int) -> Dictionary:
+static func next_wave_state(previous_direction: int, switches: int, last_switch_ms: int, horizontal_speed: float, now_ms: int, required_switches := 3, speed_threshold := 360.0) -> Dictionary:
 	var direction := 0
-	if horizontal_speed > 520.0:
+	if horizontal_speed > speed_threshold:
 		direction = 1
-	elif horizontal_speed < -520.0:
+	elif horizontal_speed < -speed_threshold:
 		direction = -1
 	if direction == 0 or direction == previous_direction:
 		return {"direction": previous_direction, "switches": switches, "last_ms": last_switch_ms, "complete": false}
@@ -80,6 +80,5 @@ static func next_wave_state(previous_direction: int, switches: int, last_switch_
 		next_switches = 1
 	else:
 		next_switches += 1
-	var complete := next_switches >= 3
+	var complete := next_switches >= required_switches
 	return {"direction": direction, "switches": 0 if complete else next_switches, "last_ms": now_ms, "complete": complete}
-

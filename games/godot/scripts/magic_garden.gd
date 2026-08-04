@@ -132,14 +132,20 @@ func _on_snapshot_updated(observations: Array) -> void:
 func _handle_hand_path(old_point: Vector2, point: Vector2, now_ms: int) -> void:
 	if not running or manually_paused:
 		return
-	if stage == "butterflies":
+	if stage in ["welcome", "butterflies"]:
 		var frame_seconds := maxf(float(now_ms - last_tracking_ms) / 1000.0, 0.001)
-		var state := Rules.next_wave_state(wave_direction, wave_switches, wave_last_ms, (point.x - old_point.x) / frame_seconds, now_ms)
+		var required_switches := 2 if stage == "welcome" else 3
+		var speed_threshold := 260.0 if stage == "welcome" else 360.0
+		var state := Rules.next_wave_state(wave_direction, wave_switches, wave_last_ms, (point.x - old_point.x) / frame_seconds, now_ms, required_switches, speed_threshold)
 		wave_direction = int(state.direction)
 		wave_switches = int(state.switches)
 		wave_last_ms = int(state.last_ms)
 		if bool(state.complete):
-			_collect_target()
+			if stage == "welcome":
+				elapsed = Rules.INTRO_END
+				_enter_stage("seeds")
+			else:
+				_collect_target()
 	elif target and Rules.segment_hits_circle(old_point, point, target.position, target.radius + 24.0):
 		_collect_target()
 
