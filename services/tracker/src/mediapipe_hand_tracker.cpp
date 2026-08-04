@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <dlfcn.h>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -44,7 +45,7 @@ struct MediaPipeHandTracker::State {
   using FreeImage = void (*)(mp::MpImagePtr);
 
   State(const std::string& model, const std::string& library_path, const std::string& delegate,
-        int max_hands, float confidence) {
+        int max_hands, float confidence, bool associate) : associate_to_persons(associate) {
     library = dlopen(library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!library) throw std::runtime_error("cannot load MediaPipe runtime " + library_path + ": " + dlerror());
     try {
@@ -95,11 +96,14 @@ struct MediaPipeHandTracker::State {
   Close close = nullptr;
   CreateImage create_image = nullptr;
   FreeImage free_image = nullptr;
+  bool associate_to_persons = true;
 };
 
 MediaPipeHandTracker::MediaPipeHandTracker(std::string model_path, std::string library_path,
-                                           std::string delegate, int max_hands, float confidence)
-    : state_(std::make_unique<State>(model_path, library_path, delegate, max_hands, confidence)) {}
+                                           std::string delegate, int max_hands, float confidence,
+                                           bool require_person_association)
+    : state_(std::make_unique<State>(model_path, library_path, delegate, max_hands, confidence,
+                                     require_person_association)) {}
 MediaPipeHandTracker::~MediaPipeHandTracker() = default;
 std::string MediaPipeHandTracker::name() const { return "mediapipe-hand-landmarker"; }
 
@@ -150,10 +154,18 @@ std::vector<HandObservation> MediaPipeHandTracker::infer(
     if (index < result.handedness_count && result.handedness[index].categories_count > 0)
       confidence = result.handedness[index].categories[0].score;
 
-    hands.push_back({1000 + index, 0, center, std::move(landmarks), confidence, gripping});
+    std::uint32_t hand_id = index + 1;
+    if (index < result.handedness_count && result.handedness[index].categories_count > 0) {
+      const auto* label = result.handedness[index].categories[0].category_name;
+      if (label && std::string_view(label) == "Right") hand_id = 2;
+      if (label && std::string_view(label) == "Left") hand_id = 1;
+    }
+    hands.push_back({hand_id, 0, center, std::move(landmarks), confidence, gripping});
   }
   state_->close_result(&result);
-  return associate_hands_to_wrists(std::move(hands), persons);
+  if (state_->associate_to_persons)
+    return associate_hands_to_wrists(std::move(hands), persons);
+  return hands;
 }
 
 }  // namespace moca

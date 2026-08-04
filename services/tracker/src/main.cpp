@@ -206,6 +206,7 @@ int main(int argc, char** argv) {
   std::string hand_model_path;
   std::string mediapipe_library_path;
   std::string mediapipe_delegate = "CPU";
+  bool hand_only = false;
   for (int index = 1; index < argc; ++index) {
     const std::string argument = argv[index];
     if (argument == "--source" && index + 1 < argc) source = argv[++index];
@@ -220,6 +221,7 @@ int main(int argc, char** argv) {
     if (argument == "--hand-model" && index + 1 < argc) hand_model_path = argv[++index];
     if (argument == "--mediapipe-library" && index + 1 < argc) mediapipe_library_path = argv[++index];
     if (argument == "--mediapipe-delegate" && index + 1 < argc) mediapipe_delegate = argv[++index];
+    if (argument == "--hand-only") hand_only = true;
   }
 
   std::cout << "moca-tracker 0.1.0 source=" << source << " protocol=2\n";
@@ -235,7 +237,7 @@ int main(int argc, char** argv) {
       std::cerr << "model load failed: " << exception.what() << '\n';
       return 6;
     }
-  } else if (serve) {
+  } else if (serve && !hand_only) {
     std::cerr << "camera serving requires --model <path-to-model.xml>\n";
     return 7;
   }
@@ -268,7 +270,7 @@ int main(int argc, char** argv) {
     }
     try {
       hand_tracker = std::make_unique<moca::MediaPipeHandTracker>(
-          hand_model_path, mediapipe_library_path, mediapipe_delegate);
+          hand_model_path, mediapipe_library_path, mediapipe_delegate, 2, 0.35F, !hand_only);
     } catch (const std::exception& exception) {
       std::cerr << "hand tracker load failed: " << exception.what() << '\n';
       return 9;
@@ -291,19 +293,20 @@ int main(int argc, char** argv) {
     ++captured;
     std::vector<moca::TrackedDetection> tracked;
     std::vector<moca::HandObservation> hands;
-    if (backend) {
-      try {
-        const moca::ImageView view{frame->bytes(), frame->width, frame->height, frame->stride};
+    try {
+      const moca::ImageView view{frame->bytes(), frame->width, frame->height, frame->stride};
+      if (backend) {
         tracked = identity.update(backend->infer(view), frame->captured_at);
-        if (hand_tracker) hands = hand_tracker->infer(view, tracked);
-      } catch (const std::exception& exception) {
-        std::cerr << "inference failed: " << exception.what() << '\n';
-        return 8;
       }
+      if (hand_tracker) hands = hand_tracker->infer(view, tracked);
+    } catch (const std::exception& exception) {
+      std::cerr << "inference failed: " << exception.what() << '\n';
+      return 8;
     }
     if (server) {
       const auto payload = tracking_payload(tracked, hands, *frame,
-                                            backend->name() + "@" + backend->device(),
+                                            backend ? backend->name() + "@" + backend->device()
+                                                    : "mediapipe-only",
                                             hand_tracker ? hand_tracker->name() : "none");
       const auto bytes =
           std::span(reinterpret_cast<const std::uint8_t*>(payload.data()), payload.size());

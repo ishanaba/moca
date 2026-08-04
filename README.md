@@ -53,6 +53,11 @@ make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model
 make mediapipe-live
 ```
 
+On the `experiment/mediapipe-hand-only` branch, `make mediapipe-live` does not
+load or run YOLO. MediaPipe detects hands directly and uses handedness for the
+left/right pointer IDs. The preserved `feature/yolo-mediapipe-hybrid` branch
+contains the YOLO identity association version.
+
 MediaPipe uses its GPU delegate by default in `make mediapipe-live`; set
 `MOCA_MEDIAPIPE_DELEGATE=CPU` to compare its CPU path. `MOCA_DEVICE` separately
 controls the YOLO pose device. To fall back, use `make live`, or switch back to

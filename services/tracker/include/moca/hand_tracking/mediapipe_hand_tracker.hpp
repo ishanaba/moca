@@ -14,7 +14,8 @@ class MediaPipeHandTracker final : public HandTracker {
  public:
   MediaPipeHandTracker(std::string model_path, std::string library_path,
                        std::string delegate = "CPU", int max_hands = 4,
-                       float confidence = 0.35F);
+                       float confidence = 0.35F,
+                       bool require_person_association = true);
   ~MediaPipeHandTracker() override;
   MediaPipeHandTracker(const MediaPipeHandTracker&) = delete;
   MediaPipeHandTracker& operator=(const MediaPipeHandTracker&) = delete;
