@@ -12,7 +12,6 @@ var player_score := 0
 var opponent_score := 0
 var hand_target := Vector3(0.0, 1.15, RACKET_Z)
 var hand_detected := false
-var hand_gripping := false
 var last_hand_update_ms := -10000
 var serve_toward_player := true
 var ball: RigidBody3D
@@ -34,7 +33,6 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
 		hand_detected = false
-		hand_gripping = false
 	_update_player_racket(delta)
 	_update_opponent(delta)
 	_check_point()
@@ -43,7 +41,6 @@ func _physics_process(delta: float) -> void:
 func _on_snapshot_updated(players: Array) -> void:
 	last_hand_update_ms = Time.get_ticks_msec()
 	hand_detected = not players.is_empty()
-	hand_gripping = false
 	if not hand_detected:
 		return
 	var strongest: Dictionary = players[0]
@@ -52,16 +49,15 @@ func _on_snapshot_updated(players: Array) -> void:
 			strongest = observation
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
 	hand_target = Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
-	hand_gripping = bool(strongest.get("gripping", false))
 
 
 func _update_player_racket(delta: float) -> void:
 	player_racket.visible = hand_detected
-	player_shape.disabled = not hand_detected or not hand_gripping
+	player_shape.disabled = not hand_detected
 	if not hand_detected:
 		status_label.text = "Show your hand"
 		return
-	status_label.text = "GRIP — racket active" if hand_gripping else "Close hand to grip racket"
+	status_label.text = "Hand detected — racket active"
 	var old_position := player_racket.position
 	player_racket.position = player_racket.position.lerp(hand_target, minf(1.0, delta * 18.0))
 	var velocity := (player_racket.position - old_position) / maxf(delta, 0.001)

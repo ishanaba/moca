@@ -68,10 +68,11 @@ controls the YOLO pose device. To fall back, use `make live`, or switch back to
 
 The `feature/mediapipe-table-tennis-3d` branch replaces the 2D target game with
 a Jolt Physics 3D table-tennis prototype. The MediaPipe palm drives a
-depth-constrained `AnimatableBody3D` racket; grip state enables its collider.
-The ball is a continuous-collision `RigidBody3D`. This single-camera mapping is
-isolated in `table_tennis_rules.gd` so calibrated stereo depth can replace it
-without changing the physics scene.
+depth-constrained `AnimatableBody3D` racket. Any detected hand enables the
+racket collider; no grip gesture is required. The ball is a
+continuous-collision `RigidBody3D`. This single-camera mapping is isolated in
+`table_tennis_rules.gd` so calibrated stereo depth can replace it without
+changing the physics scene.
 
 If Protobuf is installed, CMake generates C++ protocol types. Without it, the dependency-free core and tests still build.
 
