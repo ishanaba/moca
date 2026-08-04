@@ -68,6 +68,7 @@ int main() {
   hand->set_person_id(7);
   hand->set_confidence(0.95F);
   hand->set_source("test-hand");
+  hand->set_gripping(true);
   hand->mutable_center()->set_x(0.6F);
   hand->mutable_center()->set_y(0.7F);
   hand->mutable_center()->set_confidence(0.95F);
@@ -78,6 +79,7 @@ int main() {
   assert(second->second.players[0].x == 0.6F);
   assert(second->second.players[0].y == 0.7F);
   assert(second->second.players[0].confidence == 0.95F);
+  assert(second->second.players[0].gripping);
 
   frame->clear_persons();
   frame->clear_hands();

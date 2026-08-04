@@ -15,6 +15,7 @@ struct BladeSnapshot {
   float x;
   float y;
   float confidence;
+  bool gripping;
 };
 
 struct TrackingSnapshot {

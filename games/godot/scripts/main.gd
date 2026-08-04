@@ -27,6 +27,7 @@ var round_over := false
 var random := RandomNumberGenerator.new()
 var camera_texture: ImageTexture
 var blade_acquired := [false, false]
+var blade_gripping := [false, false]
 var hit_sound_players: Array[AudioStreamPlayer] = []
 var next_hit_sound_player := 0
 
@@ -64,6 +65,7 @@ func _process(delta: float) -> void:
 
 
 func _on_snapshot_updated(players: Array) -> void:
+	blade_gripping.fill(false)
 	if players.is_empty():
 		return
 	previous_blades = blades.duplicate()
@@ -78,6 +80,7 @@ func _on_snapshot_updated(players: Array) -> void:
 		var hand_id: int = int(observation.get("id", observation_index + 1))
 		var slot: int = (hand_id - 1) % blades.size()
 		var measured: Vector2 = observation.get("blade", blades[slot])
+		blade_gripping[slot] = bool(observation.get("gripping", false))
 		if not blade_acquired[slot]:
 			blades[slot] = measured
 			previous_blades[slot] = measured
@@ -130,7 +133,7 @@ func _update_targets(delta: float) -> void:
 func _check_hits() -> void:
 	for target in targets.duplicate():
 		for player_index in blades.size():
-			if GameRulesScript.segment_hits_circle(previous_blades[player_index], blades[player_index], target.position, TARGET_RADIUS + BLADE_RADIUS):
+			if blade_gripping[player_index] and blades[player_index].distance_to(target.position) <= TARGET_RADIUS + BLADE_RADIUS:
 				if not target.bomb:
 					_play_fruit_hit_sound()
 				scores[0] = GameRulesScript.clamp_score(scores[0] + GameRulesScript.score_for_target(target.bomb))
@@ -217,8 +220,9 @@ func _draw() -> void:
 			draw_line(target.position - Vector2(10.0, 10.0), target.position + Vector2(10.0, 10.0), Color.WHITE, 4.0)
 			draw_line(target.position + Vector2(10.0, -10.0), target.position + Vector2(-10.0, 10.0), Color.WHITE, 4.0)
 	for index in blades.size():
-		draw_line(previous_blades[index], blades[index], COLORS[index], 8.0, true)
-		draw_circle(blades[index], BLADE_RADIUS, COLORS[index])
+		var pointer_color: Color = COLORS[index] if blade_gripping[index] else COLORS[index].darkened(0.55)
+		draw_line(previous_blades[index], blades[index], pointer_color, 8.0, true)
+		draw_circle(blades[index], BLADE_RADIUS, pointer_color)
 	_draw_text()
 
 

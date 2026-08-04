@@ -139,6 +139,7 @@ std::string tracking_payload(const std::vector<moca::TrackedDetection>& tracked,
     if (observation.person_id != 0) hand->set_person_id(observation.person_id);
     hand->set_confidence(observation.confidence);
     hand->set_source(hand_source);
+    hand->set_gripping(observation.gripping);
     hand->mutable_center()->set_x(observation.center.x);
     hand->mutable_center()->set_y(observation.center.y);
     hand->mutable_center()->set_confidence(observation.center.confidence);

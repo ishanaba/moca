@@ -48,6 +48,7 @@ bool TrackingDecoder::ingest(const ::godot::PackedByteArray& payload) {
     value["x"] = player.x;
     value["y"] = player.y;
     value["confidence"] = player.confidence;
+    value["gripping"] = player.gripping;
     players.push_back(value);
   }
   ::godot::Dictionary result;

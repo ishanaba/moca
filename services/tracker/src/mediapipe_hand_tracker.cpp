@@ -1,6 +1,7 @@
 #include "moca/hand_tracking/mediapipe_hand_tracker.hpp"
 
 #include "moca/hand_tracking/association.hpp"
+#include "moca/hand_tracking/hand_geometry.hpp"
 
 #include "mediapipe_c_api.hpp"
 
@@ -143,12 +144,13 @@ std::vector<HandObservation> MediaPipeHandTracker::infer(
                            std::clamp(landmark.y, 0.0F, 1.0F),
                            landmark.has_presence ? landmark.presence : 1.0F});
     }
-    const Keypoint center = landmarks.front();  // landmark 0 is the wrist.
+    const Keypoint center = palm_center(landmarks);
+    const bool gripping = is_gripping(landmarks);
     float confidence = 1.0F;
     if (index < result.handedness_count && result.handedness[index].categories_count > 0)
       confidence = result.handedness[index].categories[0].score;
 
-    hands.push_back({1000 + index, 0, center, std::move(landmarks), confidence});
+    hands.push_back({1000 + index, 0, center, std::move(landmarks), confidence, gripping});
   }
   state_->close_result(&result);
   return associate_hands_to_wrists(std::move(hands), persons);

@@ -26,7 +26,7 @@ std::vector<HandObservation> WristHandTracker::infer(
       center.confidence = wrist.confidence * person.detection.confidence;
       const std::uint32_t person_id = person.id + 1;
       const std::uint32_t hand_id = person.id * 2 + (is_right ? 2 : 1);
-      hands.push_back({hand_id, person_id, center, {}, center.confidence});
+      hands.push_back({hand_id, person_id, center, {}, center.confidence, false});
     };
     add_hand(left, person.detection.keypoints[7], false);
     add_hand(right, person.detection.keypoints[8], true);

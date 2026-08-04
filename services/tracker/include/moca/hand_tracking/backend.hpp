@@ -18,6 +18,7 @@ struct HandObservation {
   Keypoint center;
   std::vector<Keypoint> landmarks;
   float confidence;
+  bool gripping = false;
 };
 
 // A hand backend consumes the camera image plus stable, person-associated body

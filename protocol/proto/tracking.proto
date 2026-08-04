@@ -11,6 +11,7 @@ message Hand {
   repeated Keypoint landmarks = 4;
   string source = 5;
   uint32 id = 6;
+  bool gripping = 7;
 }
 message TrackingFrame {
   uint32 version = 1;

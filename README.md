@@ -42,6 +42,11 @@ are sent to gameplay: YOLO supplies the stable player identity and MediaPipe
 supplies the hand/wrist position. The default remains `wrist`, so the original
 path is unchanged.
 
+The game pointer uses the MediaPipe palm centroid rather than the wrist. A
+target scores only when the palm overlaps it while at least three fingers are
+detected as curled into a grip; an open hand can move the pointer but cannot
+collect a target.
+
 ```sh
 make mediapipe-setup  # downloads pinned MediaPipe 0.10.35 + float16 task model
 make mediapipe-live

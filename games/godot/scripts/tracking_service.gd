@@ -42,7 +42,7 @@ func _process(delta: float) -> void:
 	if source_mode != SourceMode.SIMULATED:
 		return
 	latest_players = [
-		{"id": 1, "blade": get_viewport().get_mouse_position(), "confidence": 1.0},
+		{"id": 1, "blade": get_viewport().get_mouse_position(), "confidence": 1.0, "gripping": true},
 	]
 	snapshot_updated.emit(latest_players)
 
@@ -113,6 +113,7 @@ func _poll_live() -> void:
 				"id": int(player.id),
 				"blade": Vector2((1.0 - float(player.x)) * 1280.0, float(player.y) * 720.0),
 				"confidence": float(player.confidence),
+				"gripping": bool(player.gripping),
 			})
 		latest_players = players
 		snapshot_updated.emit(latest_players)
