@@ -21,11 +21,5 @@ func _draw() -> void:
 	draw_line(arm_points[0], arm_points[1], color, 6.0, true)
 	draw_line(arm_points[1], arm_points[2], color, 8.0, true)
 	draw_circle(arm_points[1], 9.0, color)
-	var arm_direction: Vector2 = (arm_points[2] - arm_points[1]).normalized()
-	if arm_direction.length_squared() < 0.1:
-		arm_direction = Vector2.UP
-	var racket_head: Vector2 = arm_points[2] + arm_direction * 42.0
-	draw_line(arm_points[2], racket_head - arm_direction * 18.0, Color("c48b55"), 12.0, true)
-	draw_circle(racket_head, 31.0, Color(0.12, 0.72, 0.95, 0.82))
-	draw_arc(racket_head, 31.0, 0.0, TAU, 40, Color("e8fbff"), 4.0, true)
-	draw_circle(arm_points[2], 11.0, Color("fff06a"))
+	draw_circle(arm_points[2], 26.0, Color(1.0, 0.94, 0.42, 0.68))
+	draw_arc(arm_points[2], 30.0, 0.0, TAU, 40, Color("e8fbff"), 5.0, true)

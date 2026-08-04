@@ -72,13 +72,14 @@ wrist estimate to drive a depth-constrained `AnimatableBody3D` racket;
 MediaPipe Hand Landmarker is not loaded. The ball is a continuous-collision
 `RigidBody3D`. Run it with `make table-tennis-live`.
 
-Fast wrist motion produces a short forward racket stroke, giving Jolt a real
-kinematic contact velocity to transfer to the ball despite the single camera's
-lack of measured depth.
+The player-side racket mesh is hidden: the highlighted YOLO wrist is the racket.
+Because a single camera cannot measure forward motion, covering an incoming
+ball with the wrist collider creates a deterministic Jolt return toward the
+computer.
 
 Horizontal wrist movement is the sole positional control and spans the table
-width; racket height and depth stay fixed for stability. The overlay attaches a
-handle and paddle head directly to the wrist at the end of the YOLO arm chain.
+width; racket height and depth stay fixed for stability. The overlay highlights
+the wrist at the end of the YOLO arm chain as the playable contact area.
 The game locks onto one YOLO wrist until it disappears, preventing racket jumps
 when a second wrist briefly enters the camera.
 

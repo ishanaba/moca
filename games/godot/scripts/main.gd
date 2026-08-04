@@ -12,14 +12,12 @@ const WIN_SCORE := 11
 var player_score := 0
 var opponent_score := 0
 var hand_target := Vector3(0.0, 1.15, RACKET_Z)
-var previous_hand_target := Vector3(0.0, 1.15, RACKET_Z)
-var last_tracking_ms := -1
-var swing_strength := 0.0
 var active_hand_id := -1
 var hand_detected := false
 var last_hand_update_ms := -10000
 var serve_toward_player := true
 var serve_countdown := 0.0
+var last_player_hit_ms := -1000
 var ball: RigidBody3D
 var player_racket: AnimatableBody3D
 var player_shape: CollisionShape3D
@@ -41,10 +39,7 @@ func _physics_process(delta: float) -> void:
 	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
 		hand_detected = false
 		active_hand_id = -1
-		last_tracking_ms = -1
-		swing_strength = 0.0
 	_update_player_racket(delta)
-	swing_strength = move_toward(swing_strength, 0.0, delta * 4.5)
 	_update_opponent(delta)
 	if serve_countdown > 0.0:
 		serve_countdown -= delta
@@ -60,8 +55,6 @@ func _on_snapshot_updated(players: Array) -> void:
 		if hand_overlay:
 			hand_overlay.set_arm([])
 		active_hand_id = -1
-		last_tracking_ms = -1
-		swing_strength = 0.0
 		return
 	var strongest: Dictionary = players[0]
 	var active_found := false
@@ -77,32 +70,30 @@ func _on_snapshot_updated(players: Array) -> void:
 	if hand_overlay:
 		hand_overlay.set_arm(strongest.get("landmarks", []))
 	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
-	var new_target := Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
-	var now_ms := Time.get_ticks_msec()
-	if last_tracking_ms > 0:
-		var sample_seconds := maxf(float(now_ms - last_tracking_ms) / 1000.0, 0.001)
-		var hand_speed := new_target.distance_to(previous_hand_target) / sample_seconds
-		if hand_speed > 0.45:
-			swing_strength = maxf(swing_strength, clampf((hand_speed - 0.45) / 3.5, 0.0, 1.0))
-	previous_hand_target = new_target
-	last_tracking_ms = now_ms
-	hand_target = new_target
+	hand_target = Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
 
 
 func _update_player_racket(delta: float) -> void:
-	player_racket.visible = hand_detected
 	player_shape.disabled = not hand_detected
 	if not hand_detected:
 		status_label.text = "Show your hand"
 		return
-	status_label.text = "SWING" if swing_strength > 0.2 else "Move hand LEFT / RIGHT to control the blue racket"
-	var old_position := player_racket.position
-	var stroke_target := hand_target
-	stroke_target.z -= swing_strength * 0.34
-	player_racket.position = player_racket.position.lerp(stroke_target, minf(1.0, delta * 18.0))
-	var velocity := (player_racket.position - old_position) / maxf(delta, 0.001)
-	player_racket.rotation.z = clampf(-velocity.x * 0.035, -0.45, 0.45)
-	player_racket.rotation.x = clampf(velocity.y * 0.025, -0.35, 0.35)
+	status_label.text = "Cover the incoming ball with your hand"
+	player_racket.position = player_racket.position.lerp(hand_target, minf(1.0, delta * 18.0))
+
+
+func _on_ball_body_entered(body: Node) -> void:
+	if body != player_racket or not hand_detected or ball.linear_velocity.z <= 0.0:
+		return
+	var now_ms := Time.get_ticks_msec()
+	if now_ms - last_player_hit_ms < 180:
+		return
+	last_player_hit_ms = now_ms
+	# Depth is not observable with one camera, so contact with the wrist plane
+	# creates a deterministic return toward the computer.
+	ball.linear_velocity = Rules.hand_return_velocity(ball.position.x, player_racket.position.x)
+	var horizontal_offset := ball.linear_velocity.x / 1.8
+	ball.angular_velocity = Vector3(0.0, horizontal_offset * 18.0, 0.0)
 
 
 func _update_opponent(delta: float) -> void:
@@ -170,7 +161,7 @@ func _build_world() -> void:
 	_create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
 	_create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
 	_create_static_box("CenterLine", Vector3(0.018, 0.008, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT + 0.066, 0.0), Color("d9f4ff"), false)
-	player_racket = _create_racket("PlayerRacket", Color("44d9ff"), Vector3(0.0, 1.15, RACKET_Z))
+	player_racket = _create_hand_collider(Vector3(0.0, 1.18, RACKET_Z))
 	player_shape = player_racket.get_node("CollisionShape3D")
 	opponent_racket = _create_racket("OpponentRacket", Color("ff657f"), Vector3(0.0, 1.15, -RACKET_Z))
 	ball = RigidBody3D.new()
@@ -197,6 +188,7 @@ func _build_world() -> void:
 	ball_mesh.material_override = ball_material
 	ball.add_child(ball_mesh)
 	add_child(ball)
+	ball.body_entered.connect(_on_ball_body_entered)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hand_overlay = HandOverlayScript.new()
@@ -251,6 +243,21 @@ func _create_racket(name_value: String, color: Color, position_value: Vector3) -
 	racket.add_child(mesh_instance)
 	add_child(racket)
 	return racket
+
+
+func _create_hand_collider(position_value: Vector3) -> AnimatableBody3D:
+	var hand := AnimatableBody3D.new()
+	hand.name = "PlayerHandCollider"
+	hand.position = position_value
+	hand.physics_material_override = _material(1.0, 0.05)
+	var collision_shape := CollisionShape3D.new()
+	collision_shape.name = "CollisionShape3D"
+	var box_shape := BoxShape3D.new()
+	box_shape.size = Vector3(0.64, 0.62, 0.12)
+	collision_shape.shape = box_shape
+	hand.add_child(collision_shape)
+	add_child(hand)
+	return hand
 
 
 func _material(bounce: float, friction: float) -> PhysicsMaterial:
