@@ -90,8 +90,8 @@ func _test_table_tennis_mapping() -> void:
 func _test_garden_rules() -> void:
 	_expect(GardenRulesForTest.stage_for_elapsed(0.0) == "welcome", "garden should begin with the welcome")
 	_expect(GardenRulesForTest.stage_for_elapsed(15.0) == "seeds", "seed stage should follow the welcome")
-	_expect(GardenRulesForTest.stage_for_elapsed(65.0) == "butterflies", "butterfly stage should follow seeds")
-	_expect(GardenRulesForTest.stage_for_elapsed(115.0) == "bubbles", "bubble stage should follow butterflies")
+	_expect(GardenRulesForTest.stage_for_elapsed(65.0) == "bubbles", "magic-ball stage should follow seeds")
+	_expect(GardenRulesForTest.stage_for_elapsed(115.0) == "butterflies", "butterfly stage should be the final activity")
 	_expect(GardenRulesForTest.stage_for_elapsed(165.0) == "celebration", "garden should end with a celebration")
 	_expect(GardenRulesForTest.stage_for_elapsed(180.0) == "complete", "garden should complete at three minutes")
 	_expect(GardenRulesForTest.segment_hits_circle(Vector2.ZERO, Vector2(100.0, 0.0), Vector2(50.0, 5.0), 10.0), "fast wrist paths should hit crossed targets")

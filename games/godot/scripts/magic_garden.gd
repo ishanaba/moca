@@ -6,9 +6,9 @@ const SAFE_RECT := Rect2(128.0, 130.0, 1024.0, 460.0)
 const TRACKING_TIMEOUT_MS := 650
 const TRACKING_STABLE_MS := 250
 const MAZE_TEMPLATES := [
-	[Vector2(150.0, 170.0), Vector2(150.0, 390.0), Vector2(390.0, 390.0), Vector2(560.0, 220.0), Vector2(760.0, 420.0), Vector2(1010.0, 420.0)],
-	[Vector2(1080.0, 170.0), Vector2(1080.0, 360.0), Vector2(830.0, 360.0), Vector2(650.0, 180.0), Vector2(470.0, 360.0), Vector2(230.0, 360.0)],
-	[Vector2(180.0, 180.0), Vector2(430.0, 180.0), Vector2(590.0, 340.0), Vector2(750.0, 180.0), Vector2(1030.0, 180.0), Vector2(1030.0, 450.0)],
+	[Vector2(120.0, 140.0), Vector2(120.0, 270.0), Vector2(300.0, 270.0), Vector2(300.0, 130.0), Vector2(500.0, 130.0), Vector2(500.0, 360.0), Vector2(700.0, 360.0), Vector2(700.0, 170.0), Vector2(900.0, 170.0), Vector2(900.0, 430.0), Vector2(1120.0, 430.0)],
+	[Vector2(1120.0, 130.0), Vector2(920.0, 130.0), Vector2(920.0, 300.0), Vector2(740.0, 300.0), Vector2(740.0, 140.0), Vector2(550.0, 140.0), Vector2(550.0, 400.0), Vector2(360.0, 400.0), Vector2(360.0, 220.0), Vector2(150.0, 220.0), Vector2(150.0, 450.0)],
+	[Vector2(130.0, 140.0), Vector2(310.0, 140.0), Vector2(430.0, 260.0), Vector2(550.0, 140.0), Vector2(680.0, 270.0), Vector2(810.0, 140.0), Vector2(950.0, 280.0), Vector2(1120.0, 280.0), Vector2(1120.0, 440.0), Vector2(850.0, 440.0)],
 ]
 
 var camera_view: TextureRect
@@ -291,7 +291,7 @@ func _spawn_target() -> void:
 	)
 	var direction := Vector2(random.randf_range(-1.0, 1.0), random.randf_range(-0.55, 0.55))
 	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
-	var target_radius: float = 36.0 if stage == "butterflies" else float(difficulty.radius)
+	var target_radius: float = 20.0 if stage == "butterflies" else float(difficulty.radius)
 	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
 	var target_kind := "butterfly" if stage == "butterflies" else "magic_ball"
 	if stage == "bubbles":
@@ -575,10 +575,10 @@ func _draw() -> void:
 			var angle := float(petal) * TAU / 5.0
 			draw_circle(point + Vector2(12.0, 15.0) + Vector2.from_angle(angle) * 11.0, 9.0, bad_color)
 	if stage == "butterflies" and not active_maze_path.is_empty():
-		draw_polyline(PackedVector2Array(active_maze_path), Color(0.12, 0.08, 0.24, 0.9), 130.0, true)
-		draw_polyline(PackedVector2Array(active_maze_path), Color(0.55, 0.9, 0.55, 0.48), 100.0, true)
-		draw_circle(active_maze_path[0], 38.0, Color(0.35, 0.9, 0.55, 0.9))
-		draw_circle(active_maze_path[-1], 45.0, Color(1.0, 0.82, 0.2, 0.45))
+		draw_polyline(PackedVector2Array(active_maze_path), Color(0.12, 0.08, 0.24, 0.9), 72.0, true)
+		draw_polyline(PackedVector2Array(active_maze_path), Color(0.55, 0.9, 0.55, 0.48), 52.0, true)
+		draw_circle(active_maze_path[0], 27.0, Color(0.35, 0.9, 0.55, 0.9))
+		draw_circle(active_maze_path[-1], 32.0, Color(1.0, 0.82, 0.2, 0.45))
 		draw_string(ThemeDB.fallback_font, active_maze_path[0] + Vector2(-38.0, 8.0), "START", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
 		draw_string(ThemeDB.fallback_font, Vector2(560.0, 115.0), "MAZE %d" % (maze_index + 1), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color("fff6a3"))
 		if target and butterfly_segment < active_maze_path.size() - 1:

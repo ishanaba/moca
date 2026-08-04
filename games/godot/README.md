@@ -15,8 +15,8 @@ godot --path games/godot -- --live=ws://127.0.0.1:8765
 ```
 
 The child sees a mirrored live camera feed and uses either YOLO-tracked wrist to
-catch seeds, guide a butterfly through a maze, and pop falling magic balls with a pointed
-magic wand during a guided three-minute session. Caught seeds animate into the
+catch seeds, pop falling magic balls with a pointed wand, and finally guide a
+butterfly through multiple mazes during a guided three-minute session. Caught seeds animate into the
 flower bed, and the UI counts flowers planted and butterflies fed. During the
 final stage, magic balls fall toward planted flowers: wand pops protect the
 garden, while a missed ball visibly spoils and removes one flower. Planting,
@@ -29,11 +29,11 @@ butterfly stage renders wind streaks at the hands, and the magic-ball stage
 renders only pointed wands; only the moving pointed tip pops a ball. Tracking
 loss keeps its on-screen warning but does not stop the session countdown.
 
-The butterfly remains centered inside a maze above the flower bed. Up/down,
+The butterfly remains centered inside a narrow maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with
 the same direction; mismatched movement stops it. A yellow arrow shows the
 direction required for the current section. Three different mazes run in
-sequence, and each final corridor enters one of the flowers actually planted
+sequence. Their longer routes do not cross themselves, and each final corridor enters one of the flowers actually planted
 during the seed stage.
 
 ## Test

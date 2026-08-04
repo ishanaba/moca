@@ -67,8 +67,8 @@ controls the YOLO pose device. To fall back, use `make live`, or switch back to
 ### Magic Garden Rescue
 
 The active Godot client is a three-minute, failure-free AR movement game for
-one child. A mirrored live camera view is overlaid with seeds, sequential
-butterfly mazes, falling magic balls, and a growing procedural garden. The UI
+one child. A mirrored live camera view is overlaid with seeds, falling magic
+balls, final-stage sequential butterfly mazes, and a growing procedural garden. The UI
 counts flowers planted and butterflies fed. Caught seeds animate into the bed;
 unblocked magic balls spoil and remove flowers, while wand pops protect them.
 Procedural sounds provide immediate feedback. YOLO26n-pose supplies two stable

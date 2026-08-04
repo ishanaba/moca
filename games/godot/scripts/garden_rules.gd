@@ -14,9 +14,9 @@ static func stage_for_elapsed(elapsed: float) -> String:
 	if elapsed < SEEDS_END:
 		return "seeds"
 	if elapsed < BUTTERFLIES_END:
-		return "butterflies"
-	if elapsed < BUBBLES_END:
 		return "bubbles"
+	if elapsed < BUBBLES_END:
+		return "butterflies"
 	if elapsed < SESSION_END:
 		return "celebration"
 	return "complete"
