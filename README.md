@@ -75,6 +75,11 @@ Procedural sounds provide immediate feedback. YOLO26n-pose supplies two stable
 wrist inputs and swept-path collision catches fast touches. Tracking loss keeps
 its warning visible without pausing the session timer.
 
+Each activity begins with an English story narration through the local Speech
+Dispatcher. Activity prompt text is hidden; statistics and the tracking warning
+remain visible. Butterfly wind streaks rotate with the child's actual hand
+movement direction.
+
 Run it with `make magic-garden-live`. Mouse simulation and the bundled two-hand
 replay support development without a camera. The previous table-tennis
 controller remains in `games/godot/scripts/main.gd` and on its checkpoint branch.

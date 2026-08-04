@@ -405,11 +405,11 @@ func _enter_stage(next_stage: String) -> void:
 	wave_switches = 0
 	wave_last_ms = -1
 	var prompts := {
-		"welcome": "Wave to wake the garden",
-		"seeds": "Touch the glowing seeds",
-		"butterflies": "Move your hand in the path direction to guide the butterfly",
-		"bubbles": "Pop falling magic balls before they spoil the flowers",
-		"celebration": "Look — the garden is growing!",
+		"welcome": "Once upon a time, a sleepy magic garden was waiting for a helper. Wave your hand from side to side to wake it up.",
+		"seeds": "The garden is awake, but its flower bed is empty. Use both magic scoops to catch the glowing seeds and plant as many flowers as you can.",
+		"bubbles": "Oh no! Mischievous magic balls are falling from the sky. Point your magic arrows and pop them before they make the flowers sick.",
+		"butterflies": "The flowers are safe, and hungry butterflies have arrived. Move your hands in the direction of each narrow path and guide every butterfly to a flower.",
+		"celebration": "The garden is blooming, the butterflies are happy, and our adventure is complete!",
 	}
 	instruction_label.text = str(prompts.get(stage, "Great job!"))
 	if spoken_stage != stage:
@@ -455,14 +455,15 @@ func _finish_session() -> void:
 	for seed_target in seed_targets:
 		seed_target.queue_free()
 	seed_targets.clear()
-	instruction_label.text = "Great job!\nYou grew a magical garden!\n\nPress SPACE to restart"
-	_speak("Great job!")
+	instruction_label.text = ""
+	_speak("Great job! You grew a magical garden. Press space when you want to play the story again.")
 	pause_button.visible = false
 	replay_button.visible = true
 
 
 func _show_idle() -> void:
-	instruction_label.text = "Magic Garden Rescue\n\nPress SPACE to start"
+	instruction_label.text = ""
+	_speak("Welcome to Magic Garden Rescue. Press space to begin the story.")
 	time_label.text = "Timer: 3:00"
 	_update_counters()
 	pause_button.visible = false
@@ -470,14 +471,13 @@ func _show_idle() -> void:
 
 
 func _speak(message: String) -> void:
-	# Some Linux/Flatpak builds advertise TTS while their synthesizer is null.
-	# Keep speech opt-in until a working system voice has been configured.
-	if not OS.has_environment("MOCA_ENABLE_TTS") or not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
+	var speech_command := "/run/host/usr/bin/spd-say"
+	if not FileAccess.file_exists(speech_command):
+		speech_command = "/usr/bin/spd-say"
+	if not FileAccess.file_exists(speech_command):
 		return
-	var voices := DisplayServer.tts_get_voices_for_language("en")
-	if not voices.is_empty():
-		DisplayServer.tts_stop()
-		DisplayServer.tts_speak(message, str(voices[0]), 65, 1.0, 1.05)
+	OS.execute(speech_command, ["--cancel"])
+	OS.create_process(speech_command, ["--rate", "-12", "--pitch", "18", "--language", "en", message])
 
 
 func _play_tone(frequency: float, duration: float) -> void:
@@ -531,6 +531,7 @@ func _build_ui() -> void:
 	instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	instruction_label.add_theme_font_size_override("font_size", 30)
 	instruction_label.add_theme_color_override("font_color", Color("fff7b2"))
+	instruction_label.visible = false
 	add_child(instruction_label)
 	flowers_label = Label.new()
 	flowers_label.position = Vector2(996.0, 27.0)
@@ -611,9 +612,12 @@ func _draw() -> void:
 			draw_line(point + Vector2(0.0, -5.0), point + Vector2(0.0, -70.0), Color("d9f6ff"), 10.0, true)
 			draw_arc(point, 34.0, 0.0, PI, 24, Color("fff06a"), 10.0, true)
 		elif stage == "butterflies":
-			var wind_direction := Vector2.RIGHT
-			if target and butterfly_segment < active_maze_path.size() - 1:
-				wind_direction = (active_maze_path[butterfly_segment + 1] - active_maze_path[butterfly_segment]).normalized()
+			var tip: Vector2 = hand_value.get("tip", point + Vector2.RIGHT * 70.0)
+			var wind_direction := tip - point
+			if wind_direction.length_squared() < 0.001:
+				wind_direction = Vector2.RIGHT
+			else:
+				wind_direction = wind_direction.normalized()
 			var wind_side := wind_direction.rotated(PI * 0.5)
 			for offset in [-18.0, 0.0, 18.0]:
 				draw_line(point - wind_direction * 48.0 + wind_side * offset, point + wind_direction * 42.0 + wind_side * offset, Color(0.65, 0.95, 1.0, 0.82), 6.0, true)

@@ -25,11 +25,13 @@ the session; the on-screen button pauses, R restarts, and Escape exits. Run the 
 magic-garden-live`.
 
 Two seeds remain available so both hands can scoop them independently. The
-butterfly stage renders wind streaks at the hands, and the magic-ball stage
+butterfly stage renders wind streaks aligned with each hand's current movement,
+and the magic-ball stage
 renders only pointed wands; only the moving pointed tip pops a ball. Tracking
 loss keeps its on-screen warning but does not stop the session countdown.
 Flowers planted, butterflies fed, and the timer share a top-right statistics
-panel, while activity and tracking instructions stay on the left.
+panel. Activity instructions are narrated as a short story instead of being
+shown as text; the tracking warning remains on the left when hands disappear.
 
 The butterfly remains centered inside a narrow maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with
