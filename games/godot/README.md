@@ -20,14 +20,16 @@ butterfly through multiple mazes during a guided three-minute session. Caught se
 flower bed, and the UI counts flowers planted and butterflies fed. During the
 final stage, magic balls fall toward planted flowers: wand pops protect the
 garden, while a missed ball visibly spoils and removes one flower. Planting,
-popping, and damage play synthesized effects. Space pauses, R restarts, and
-Escape exits. Run the camera experience from the repository root with `make
+popping, and damage play synthesized effects. Space starts, ends, or restarts
+the session; the on-screen button pauses, R restarts, and Escape exits. Run the camera experience from the repository root with `make
 magic-garden-live`.
 
 Two seeds remain available so both hands can scoop them independently. The
 butterfly stage renders wind streaks at the hands, and the magic-ball stage
 renders only pointed wands; only the moving pointed tip pops a ball. Tracking
 loss keeps its on-screen warning but does not stop the session countdown.
+Flowers planted, butterflies fed, and the timer share a top-right statistics
+panel, while activity and tracking instructions stay on the left.
 
 The butterfly remains centered inside a narrow maze above the flower bed. Up/down,
 side-to-side, and diagonal hand movement advances only through a corridor with

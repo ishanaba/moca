@@ -72,8 +72,8 @@ balls, final-stage sequential butterfly mazes, and a growing procedural garden. 
 counts flowers planted and butterflies fed. Caught seeds animate into the bed;
 unblocked magic balls spoil and remove flowers, while wand pops protect them.
 Procedural sounds provide immediate feedback. YOLO26n-pose supplies two stable
-wrist inputs and swept-path collision catches fast touches. Tracking loss
-pauses the session.
+wrist inputs and swept-path collision catches fast touches. Tracking loss keeps
+its warning visible without pausing the session timer.
 
 Run it with `make magic-garden-live`. Mouse simulation and the bundled two-hand
 replay support development without a camera. The previous table-tennis

@@ -114,17 +114,23 @@ func _process(delta: float) -> void:
 				seed_targets.erase(seed_target)
 				seed_target.queue_free()
 				_spawn_seed()
-	time_label.text = "%d:%02d" % [int((Rules.SESSION_END - elapsed) / 60.0), int(Rules.SESSION_END - elapsed) % 60]
+	time_label.text = "Timer: %d:%02d" % [int((Rules.SESSION_END - elapsed) / 60.0), int(Rules.SESSION_END - elapsed) % 60]
 	queue_redraw()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
 		get_tree().quit()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_SPACE:
-			_toggle_pause()
+			get_viewport().set_input_as_handled()
+			if running:
+				_finish_session()
+			else:
+				_start_session()
 		elif event.keycode == KEY_R:
+			get_viewport().set_input_as_handled()
 			_start_session()
 
 
@@ -446,15 +452,18 @@ func _finish_session() -> void:
 	if target:
 		target.queue_free()
 		target = null
-	instruction_label.text = "Great job! You grew a magical garden!"
+	for seed_target in seed_targets:
+		seed_target.queue_free()
+	seed_targets.clear()
+	instruction_label.text = "Great job!\nYou grew a magical garden!\n\nPress SPACE to restart"
 	_speak("Great job!")
 	pause_button.visible = false
 	replay_button.visible = true
 
 
 func _show_idle() -> void:
-	instruction_label.text = "Magic Garden Rescue"
-	time_label.text = "3:00"
+	instruction_label.text = "Magic Garden Rescue\n\nPress SPACE to start"
+	time_label.text = "Timer: 3:00"
 	_update_counters()
 	pause_button.visible = false
 	replay_button.visible = false
@@ -509,32 +518,40 @@ func _build_ui() -> void:
 	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tint.z_index = -10
 	add_child(tint)
+	var stats_panel := ColorRect.new()
+	stats_panel.position = Vector2(980.0, 16.0)
+	stats_panel.size = Vector2(276.0, 126.0)
+	stats_panel.color = Color(0.025, 0.08, 0.12, 0.84)
+	stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stats_panel)
 	instruction_label = Label.new()
-	instruction_label.position = Vector2(180.0, 28.0)
-	instruction_label.size = Vector2(920.0, 72.0)
-	instruction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	instruction_label.add_theme_font_size_override("font_size", 34)
+	instruction_label.position = Vector2(24.0, 105.0)
+	instruction_label.size = Vector2(410.0, 190.0)
+	instruction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	instruction_label.add_theme_font_size_override("font_size", 30)
 	instruction_label.add_theme_color_override("font_color", Color("fff7b2"))
 	add_child(instruction_label)
 	flowers_label = Label.new()
-	flowers_label.position = Vector2(24.0, 20.0)
-	flowers_label.add_theme_font_size_override("font_size", 25)
+	flowers_label.position = Vector2(996.0, 27.0)
+	flowers_label.add_theme_font_size_override("font_size", 22)
 	flowers_label.add_theme_color_override("font_color", Color("ffe46b"))
 	add_child(flowers_label)
 	butterflies_label = Label.new()
-	butterflies_label.position = Vector2(24.0, 55.0)
-	butterflies_label.add_theme_font_size_override("font_size", 23)
+	butterflies_label.position = Vector2(996.0, 64.0)
+	butterflies_label.add_theme_font_size_override("font_size", 21)
 	butterflies_label.add_theme_color_override("font_color", Color("ffb8e5"))
 	add_child(butterflies_label)
 	time_label = Label.new()
-	time_label.position = Vector2(1160.0, 28.0)
-	time_label.add_theme_font_size_override("font_size", 26)
+	time_label.position = Vector2(996.0, 100.0)
+	time_label.add_theme_font_size_override("font_size", 22)
 	add_child(time_label)
 	tracking_label = Label.new()
-	tracking_label.position = Vector2(340.0, 315.0)
-	tracking_label.size = Vector2(600.0, 80.0)
-	tracking_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tracking_label.add_theme_font_size_override("font_size", 30)
+	tracking_label.position = Vector2(24.0, 305.0)
+	tracking_label.size = Vector2(420.0, 100.0)
+	tracking_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	tracking_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tracking_label.add_theme_font_size_override("font_size", 25)
 	tracking_label.add_theme_color_override("font_color", Color.WHITE)
 	add_child(tracking_label)
 	start_button = _make_button("Start Garden", Vector2(535.0, 610.0), _start_session)
