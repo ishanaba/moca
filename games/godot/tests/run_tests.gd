@@ -2,6 +2,7 @@ extends SceneTree
 
 const GameRulesForTest = preload("res://scripts/game_rules.gd")
 const ReplaySourceForTest = preload("res://scripts/replay_source.gd")
+const TableTennisRulesForTest = preload("res://scripts/table_tennis_rules.gd")
 
 var failures := 0
 
@@ -11,6 +12,7 @@ func _init() -> void:
 	_test_segment_collision()
 	_test_scoring()
 	_test_replay()
+	_test_table_tennis_mapping()
 	if failures == 0:
 		print("Godot smoke tests passed")
 	quit(failures)
@@ -58,3 +60,11 @@ func _test_replay() -> void:
 	_expect(replay.advance(0.5)[0].blade == Vector2(10, 20), "replay should loop deterministically")
 	_expect(replay.load_data({"frames": []}) == ERR_INVALID_DATA, "empty replay should be rejected")
 	_expect(replay.load_data({"duration_ms": 500, "frames": [{"time_ms": 500, "players": []}]}) == ERR_INVALID_DATA, "duration must extend past the final frame")
+
+
+func _test_table_tennis_mapping() -> void:
+	var center := TableTennisRulesForTest.camera_to_racket(Vector2(640, 360), Vector2(1280, 720), 2.74, 2.15)
+	_expect(absf(center.x) < 0.001, "camera center should map to table center")
+	_expect(is_equal_approx(center.z, 2.15), "racket should stay on its constrained depth plane")
+	var edge := TableTennisRulesForTest.camera_to_racket(Vector2(1280, 720), Vector2(1280, 720), 2.74, 2.15)
+	_expect(edge.x > 1.0 and edge.y < 1.0, "camera edge should map inside racket bounds")

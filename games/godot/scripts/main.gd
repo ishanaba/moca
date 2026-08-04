@@ -1,253 +1,220 @@
-extends Node2D
+extends Node3D
 
-const GameRulesScript = preload("res://scripts/game_rules.gd")
+const Rules = preload("res://scripts/table_tennis_rules.gd")
+const TABLE_WIDTH := 2.74
+const TABLE_LENGTH := 5.0
+const TABLE_HEIGHT := 0.76
+const RACKET_Z := 2.15
+const HAND_TIMEOUT_MS := 180
+const WIN_SCORE := 11
 
-const RECORD_PATH := "user://moca_records.cfg"
-const TARGET_RADIUS := 30.0
-const BLADE_RADIUS := 13.0
-const SPAWN_INTERVAL := 0.75
-const TARGET_LIFETIME := 9.0
-const TARGET_SPEED_MIN := 130.0
-const TARGET_SPEED_MAX := 280.0
-const SMOOTH_ALPHA_MIN := 0.22
-const SMOOTH_ALPHA_MAX := 0.82
-const FAST_MOTION_PIXELS := 180.0
-const COLORS := [Color("55d6ff"), Color("ff70d2")]
-const HIT_SOUND_PLAYERS := 4
-
-var scores := [0]
-var elapsed_time := 0.0
-var best_time := -1.0
-var new_record := false
-var spawn_left := 0.15
-var previous_blades := [Vector2(590.0, 360.0), Vector2(690.0, 360.0)]
-var blades := [Vector2(590.0, 360.0), Vector2(690.0, 360.0)]
-var targets: Array[Dictionary] = []
-var round_over := false
+var player_score := 0
+var opponent_score := 0
+var hand_target := Vector3(0.0, 1.15, RACKET_Z)
+var hand_detected := false
+var hand_gripping := false
+var last_hand_update_ms := -10000
+var serve_toward_player := true
+var ball: RigidBody3D
+var player_racket: AnimatableBody3D
+var player_shape: CollisionShape3D
+var opponent_racket: AnimatableBody3D
+var score_label: Label
+var status_label: Label
 var random := RandomNumberGenerator.new()
-var camera_texture: ImageTexture
-var blade_acquired := [false, false]
-var blade_detected := [false, false]
-var blade_gripping := [false, false]
-var hit_sound_players: Array[AudioStreamPlayer] = []
-var next_hit_sound_player := 0
 
 
 func _ready() -> void:
-	random.seed = 0x4d4f4341
-	_load_record()
-	_create_hit_sound_players()
+	random.seed = 0x504f4e47
+	_build_world()
 	TrackingService.snapshot_updated.connect(_on_snapshot_updated)
-	TrackingService.camera_frame_updated.connect(_on_camera_frame_updated)
-	TrackingService.source_changed.connect(func(_label: String) -> void: queue_redraw())
-	queue_redraw()
+	_reset_ball()
 
 
-func _process(delta: float) -> void:
-	if Input.is_key_pressed(KEY_F1) and TrackingService.source_mode != TrackingService.SourceMode.SIMULATED:
-		TrackingService.start_simulation()
-	if Input.is_key_pressed(KEY_F2) and TrackingService.source_mode != TrackingService.SourceMode.REPLAY:
-		TrackingService.start_replay()
-	if Input.is_key_pressed(KEY_F3) and TrackingService.source_mode != TrackingService.SourceMode.LIVE:
-		TrackingService.start_live()
-	if round_over:
-		if Input.is_action_just_pressed("ui_accept"):
-			_reset_round()
-		queue_redraw()
-		return
-	elapsed_time += delta
-	spawn_left -= delta
-	if spawn_left <= 0.0:
-		_spawn_target()
-		spawn_left += SPAWN_INTERVAL
-	_update_targets(delta)
-	_check_hits()
-	queue_redraw()
+func _physics_process(delta: float) -> void:
+	if Time.get_ticks_msec() - last_hand_update_ms > HAND_TIMEOUT_MS:
+		hand_detected = false
+		hand_gripping = false
+	_update_player_racket(delta)
+	_update_opponent(delta)
+	_check_point()
 
 
 func _on_snapshot_updated(players: Array) -> void:
-	var previously_detected := blade_detected.duplicate()
-	blade_detected.fill(false)
-	blade_gripping.fill(false)
-	if players.is_empty():
-		blade_acquired.fill(false)
-		queue_redraw()
+	last_hand_update_ms = Time.get_ticks_msec()
+	hand_detected = not players.is_empty()
+	hand_gripping = false
+	if not hand_detected:
 		return
-	previous_blades = blades.duplicate()
-	# This game is intentionally one-player. Tracker IDs identify tracks, not
-	# player slots, and may change after a temporary detection loss. Always map
-	# the strongest current observation to slot zero so tracking can recover.
-	var observations := players.duplicate()
-	observations.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return float(a.get("confidence", 0.0)) > float(b.get("confidence", 0.0)))
-	for observation_index in mini(observations.size(), blades.size()):
-		var observation: Dictionary = observations[observation_index]
-		var hand_id: int = int(observation.get("id", observation_index + 1))
-		var slot: int = (hand_id - 1) % blades.size()
-		var measured: Vector2 = observation.get("blade", blades[slot])
-		blade_detected[slot] = true
-		blade_gripping[slot] = bool(observation.get("gripping", false))
-		if not blade_acquired[slot] or not previously_detected[slot]:
-			blades[slot] = measured
-			previous_blades[slot] = measured
-			blade_acquired[slot] = true
-			continue
-		var distance: float = blades[slot].distance_to(measured)
-		var motion: float = clampf(distance / FAST_MOTION_PIXELS, 0.0, 1.0)
-		var alpha: float = lerpf(SMOOTH_ALPHA_MIN, SMOOTH_ALPHA_MAX, motion)
-		blades[slot] = blades[slot].lerp(measured, alpha)
-	for slot in blades.size():
-		if not blade_detected[slot]:
-			blade_acquired[slot] = false
+	var strongest: Dictionary = players[0]
+	for observation: Dictionary in players:
+		if float(observation.get("confidence", 0.0)) > float(strongest.get("confidence", 0.0)):
+			strongest = observation
+	var palm: Vector2 = strongest.get("blade", Vector2(640.0, 360.0))
+	hand_target = Rules.camera_to_racket(palm, Vector2(1280.0, 720.0), TABLE_WIDTH, RACKET_Z)
+	hand_gripping = bool(strongest.get("gripping", false))
 
 
-func _on_camera_frame_updated(image: Image) -> void:
-	if camera_texture == null:
-		camera_texture = ImageTexture.create_from_image(image)
-	else:
-		camera_texture.update(image)
-	queue_redraw()
-
-
-func _spawn_target() -> void:
-	var angle := random.randf_range(0.0, TAU)
-	var speed := random.randf_range(TARGET_SPEED_MIN, TARGET_SPEED_MAX)
-	targets.append({
-		"position": Vector2(random.randf_range(70.0, 1210.0), random.randf_range(100.0, 650.0)),
-		"velocity": Vector2.from_angle(angle) * speed,
-		"bomb": random.randf() < 0.18,
-		"age": 0.0,
-	})
-
-
-func _update_targets(delta: float) -> void:
-	for target in targets:
-		target.age += delta
-		target.position += target.velocity * delta
-		if target.position.x < TARGET_RADIUS:
-			target.position.x = TARGET_RADIUS
-			target.velocity.x = absf(target.velocity.x)
-		elif target.position.x > 1280.0 - TARGET_RADIUS:
-			target.position.x = 1280.0 - TARGET_RADIUS
-			target.velocity.x = -absf(target.velocity.x)
-		if target.position.y < 76.0:
-			target.position.y = 76.0
-			target.velocity.y = absf(target.velocity.y)
-		elif target.position.y > 720.0 - TARGET_RADIUS:
-			target.position.y = 720.0 - TARGET_RADIUS
-			target.velocity.y = -absf(target.velocity.y)
-	targets = targets.filter(func(target: Dictionary) -> bool: return float(target.age) < TARGET_LIFETIME)
-
-
-func _check_hits() -> void:
-	for target in targets.duplicate():
-		for player_index in blades.size():
-			if blade_detected[player_index] and blade_gripping[player_index] and blades[player_index].distance_to(target.position) <= TARGET_RADIUS + BLADE_RADIUS:
-				if not target.bomb:
-					_play_fruit_hit_sound()
-				scores[0] = GameRulesScript.clamp_score(scores[0] + GameRulesScript.score_for_target(target.bomb))
-				targets.erase(target)
-				if scores[0] >= GameRulesScript.MAX_SCORE:
-					_finish_round()
-					return
-				break
-
-
-func _create_hit_sound_players() -> void:
-	var sound := AudioStreamWAV.new()
-	sound.format = AudioStreamWAV.FORMAT_16_BITS
-	sound.mix_rate = 44100
-	sound.stereo = false
-	var duration := 0.13
-	var sample_count := int(sound.mix_rate * duration)
-	var pcm := PackedByteArray()
-	pcm.resize(sample_count * 2)
-	for sample_index in sample_count:
-		var time := float(sample_index) / float(sound.mix_rate)
-		var envelope := pow(1.0 - time / duration, 2.0)
-		var frequency := lerpf(880.0, 1320.0, time / duration)
-		var sample := sin(TAU * frequency * time) * envelope * 0.32
-		pcm.encode_s16(sample_index * 2, int(sample * 32767.0))
-	sound.data = pcm
-	for index in HIT_SOUND_PLAYERS:
-		var player := AudioStreamPlayer.new()
-		player.name = "FruitHitSound%d" % index
-		player.stream = sound
-		player.volume_db = -4.0
-		add_child(player)
-		hit_sound_players.append(player)
-
-
-func _play_fruit_hit_sound() -> void:
-	if hit_sound_players.is_empty():
+func _update_player_racket(delta: float) -> void:
+	player_racket.visible = hand_detected
+	player_shape.disabled = not hand_detected or not hand_gripping
+	if not hand_detected:
+		status_label.text = "Show your hand"
 		return
-	var player := hit_sound_players[next_hit_sound_player]
-	next_hit_sound_player = (next_hit_sound_player + 1) % hit_sound_players.size()
-	player.play()
+	status_label.text = "GRIP — racket active" if hand_gripping else "Close hand to grip racket"
+	var old_position := player_racket.position
+	player_racket.position = player_racket.position.lerp(hand_target, minf(1.0, delta * 18.0))
+	var velocity := (player_racket.position - old_position) / maxf(delta, 0.001)
+	player_racket.rotation.z = clampf(-velocity.x * 0.035, -0.45, 0.45)
+	player_racket.rotation.x = clampf(velocity.y * 0.025, -0.35, 0.35)
 
 
-func _finish_round() -> void:
-	if round_over:
-		return
-	round_over = true
-	new_record = best_time < 0.0 or elapsed_time < best_time
-	if new_record:
-		best_time = elapsed_time
-		var config := ConfigFile.new()
-		config.set_value("time_attack", "best_seconds", best_time)
-		config.save(RECORD_PATH)
+func _update_opponent(delta: float) -> void:
+	var target := Vector3(clampf(ball.position.x, -1.1, 1.1), clampf(ball.position.y, 0.9, 1.75), -RACKET_Z)
+	opponent_racket.position = opponent_racket.position.lerp(target, minf(1.0, delta * 5.5))
 
 
-func _load_record() -> void:
-	var config := ConfigFile.new()
-	if config.load(RECORD_PATH) == OK:
-		best_time = float(config.get_value("time_attack", "best_seconds", -1.0))
+func _check_point() -> void:
+	if ball.position.z > 3.25 or ball.position.y < -0.5:
+		opponent_score += 1
+		serve_toward_player = false
+		_reset_ball()
+	elif ball.position.z < -3.25:
+		player_score += 1
+		serve_toward_player = true
+		_reset_ball()
+	if player_score >= WIN_SCORE or opponent_score >= WIN_SCORE:
+		player_score = 0
+		opponent_score = 0
+	_update_score()
 
 
-func _reset_round() -> void:
-	scores = [0]
-	elapsed_time = 0.0
-	spawn_left = 0.15
-	targets.clear()
-	round_over = false
-	new_record = false
-	random.seed = 0x4d4f4341
+func _reset_ball() -> void:
+	ball.position = Vector3(0.0, 1.45, 0.0)
+	ball.rotation = Vector3.ZERO
+	ball.linear_velocity = Vector3.ZERO
+	ball.angular_velocity = Vector3.ZERO
+	ball.sleeping = false
+	var direction := 1.0 if serve_toward_player else -1.0
+	ball.linear_velocity = Vector3(random.randf_range(-0.8, 0.8), 1.4, direction * 4.7)
+	_update_score()
 
 
-func _draw() -> void:
-	if camera_texture != null:
-		draw_set_transform(Vector2(1280.0, 0.0), 0.0, Vector2(-1.0, 1.0))
-		draw_texture_rect(camera_texture, Rect2(0.0, 0.0, 1280.0, 720.0), false)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color(0.01, 0.03, 0.08, 0.28))
-	else:
-		draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color("07101f"))
-	for target in targets:
-		var color := Color("ff4057") if target.bomb else Color("8ee85b")
-		draw_circle(target.position, TARGET_RADIUS, color)
-		if target.bomb:
-			draw_line(target.position - Vector2(10.0, 10.0), target.position + Vector2(10.0, 10.0), Color.WHITE, 4.0)
-			draw_line(target.position + Vector2(10.0, -10.0), target.position + Vector2(-10.0, 10.0), Color.WHITE, 4.0)
-	for index in blades.size():
-		if not blade_detected[index]:
-			continue
-		var pointer_color: Color = COLORS[index] if blade_gripping[index] else COLORS[index].darkened(0.55)
-		draw_line(previous_blades[index], blades[index], pointer_color, 8.0, true)
-		draw_circle(blades[index], BLADE_RADIUS, pointer_color)
-	_draw_text()
+func _update_score() -> void:
+	if score_label:
+		score_label.text = "%d     %d" % [player_score, opponent_score]
 
 
-func _draw_text() -> void:
-	var font := ThemeDB.fallback_font
-	var large := 32
-	draw_string(font, Vector2(40.0, 52.0), "SCORE  %04d / 1000" % scores[0], HORIZONTAL_ALIGNMENT_LEFT, -1.0, large, COLORS[0])
-	draw_string(font, Vector2(540.0, 52.0), "TIME  %.2f" % elapsed_time, HORIZONTAL_ALIGNMENT_LEFT, -1.0, large, Color.WHITE)
-	var record_text := "RECORD  --" if best_time < 0.0 else "RECORD  %.2f" % best_time
-	draw_string(font, Vector2(930.0, 52.0), record_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 24, Color("ffd166"))
-	draw_string(font, Vector2(32.0, 700.0), "F1 Simulation    F2 Replay    F3 Live    Source: %s" % TrackingService.get_status(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color("a9bad3"))
-	if round_over:
-		draw_rect(Rect2(330.0, 270.0, 620.0, 160.0), Color(0.02, 0.03, 0.07, 0.92), true)
-		var title := "NEW RECORD!" if new_record else "1000 POINTS!"
-		draw_string(font, Vector2(475.0, 325.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 36, Color("ffd166"))
-		draw_string(font, Vector2(475.0, 365.0), "Time: %.2f seconds" % elapsed_time, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 24, Color.WHITE)
-		draw_string(font, Vector2(475.0, 405.0), "Press Space to play again", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color("a9bad3"))
+func _build_world() -> void:
+	var environment := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("091426")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("a8c8ff")
+	env.ambient_light_energy = 0.55
+	environment.environment = env
+	add_child(environment)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-55.0, -25.0, 0.0)
+	light.light_energy = 1.4
+	light.shadow_enabled = true
+	add_child(light)
+	var camera := Camera3D.new()
+	camera.position = Vector3(0.0, 4.2, 6.8)
+	camera.look_at_from_position(camera.position, Vector3(0.0, 0.8, 0.0))
+	add_child(camera)
+	_create_static_box("Floor", Vector3(8.0, 0.1, 10.0), Vector3(0.0, -0.1, 0.0), Color("17243a"))
+	_create_static_box("Table", Vector3(TABLE_WIDTH, 0.12, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT, 0.0), Color("176b87"))
+	_create_static_box("Net", Vector3(TABLE_WIDTH + 0.12, 0.32, 0.035), Vector3(0.0, TABLE_HEIGHT + 0.2, 0.0), Color("e7f5ff"))
+	_create_static_box("CenterLine", Vector3(0.018, 0.008, TABLE_LENGTH), Vector3(0.0, TABLE_HEIGHT + 0.066, 0.0), Color("d9f4ff"), false)
+	player_racket = _create_racket("PlayerRacket", Color("44d9ff"), Vector3(0.0, 1.15, RACKET_Z))
+	player_shape = player_racket.get_node("CollisionShape3D")
+	opponent_racket = _create_racket("OpponentRacket", Color("ff657f"), Vector3(0.0, 1.15, -RACKET_Z))
+	ball = RigidBody3D.new()
+	ball.name = "Ball"
+	ball.mass = 0.0027
+	ball.continuous_cd = true
+	ball.contact_monitor = true
+	ball.max_contacts_reported = 8
+	ball.physics_material_override = _material(0.88, 0.15)
+	var ball_shape := CollisionShape3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = 0.06
+	ball_shape.shape = sphere
+	ball.add_child(ball_shape)
+	var ball_mesh := MeshInstance3D.new()
+	var sphere_mesh := SphereMesh.new()
+	sphere_mesh.radius = 0.06
+	sphere_mesh.height = 0.12
+	ball_mesh.mesh = sphere_mesh
+	ball_mesh.material_override = _color_material(Color("fff2a8"))
+	ball.add_child(ball_mesh)
+	add_child(ball)
+	var ui := CanvasLayer.new()
+	add_child(ui)
+	score_label = Label.new()
+	score_label.position = Vector2(548.0, 24.0)
+	score_label.add_theme_font_size_override("font_size", 42)
+	ui.add_child(score_label)
+	status_label = Label.new()
+	status_label.position = Vector2(28.0, 668.0)
+	status_label.add_theme_font_size_override("font_size", 22)
+	ui.add_child(status_label)
+
+
+func _create_static_box(name_value: String, size: Vector3, position_value: Vector3, color: Color, collision := true) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = name_value
+	body.position = position_value
+	body.physics_material_override = _material(0.78, 0.25)
+	if collision:
+		var collision_shape := CollisionShape3D.new()
+		var box_shape := BoxShape3D.new()
+		box_shape.size = size
+		collision_shape.shape = box_shape
+		body.add_child(collision_shape)
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh_instance.mesh = mesh
+	mesh_instance.material_override = _color_material(color)
+	body.add_child(mesh_instance)
+	add_child(body)
+	return body
+
+
+func _create_racket(name_value: String, color: Color, position_value: Vector3) -> AnimatableBody3D:
+	var racket := AnimatableBody3D.new()
+	racket.name = name_value
+	racket.position = position_value
+	racket.physics_material_override = _material(0.92, 0.12)
+	var collision_shape := CollisionShape3D.new()
+	collision_shape.name = "CollisionShape3D"
+	var box_shape := BoxShape3D.new()
+	box_shape.size = Vector3(0.42, 0.52, 0.075)
+	collision_shape.shape = box_shape
+	racket.add_child(collision_shape)
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = box_shape.size
+	mesh_instance.mesh = mesh
+	mesh_instance.material_override = _color_material(color)
+	racket.add_child(mesh_instance)
+	add_child(racket)
+	return racket
+
+
+func _material(bounce: float, friction: float) -> PhysicsMaterial:
+	var material := PhysicsMaterial.new()
+	material.bounce = bounce
+	material.friction = friction
+	return material
+
+
+func _color_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.metallic = 0.15
+	material.roughness = 0.42
+	return material
