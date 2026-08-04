@@ -22,6 +22,11 @@ procedural garden. Missed targets carry no penalty. Space pauses, R restarts,
 and Escape exits. Run the camera experience from the repository root with
 `make magic-garden-live`.
 
+The butterfly remains centered inside a maze above the flower bed. Up/down,
+side-to-side, and diagonal hand movement advances only through a corridor with
+the same direction; mismatched movement stops it. A yellow arrow shows the
+direction required for the current section.
+
 ## Test
 
 ```sh

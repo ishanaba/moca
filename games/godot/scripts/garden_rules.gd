@@ -51,6 +51,12 @@ static func closest_point_on_path(point: Vector2, path: Array) -> Vector2:
 	return closest
 
 
+static func movement_matches_path(hand_motion: Vector2, path_direction: Vector2, minimum_alignment := 0.72) -> bool:
+	if hand_motion.length_squared() < 16.0 or path_direction.length_squared() < 0.000001:
+		return false
+	return hand_motion.normalized().dot(path_direction.normalized()) >= minimum_alignment
+
+
 static func difficulty_for_history(history: Array) -> Dictionary:
 	if history.is_empty():
 		return {"radius": 90.0, "speed": 50.0, "lifetime": 7.0}

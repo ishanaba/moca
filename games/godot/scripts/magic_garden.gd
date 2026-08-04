@@ -6,9 +6,8 @@ const SAFE_RECT := Rect2(128.0, 130.0, 1024.0, 460.0)
 const TRACKING_TIMEOUT_MS := 650
 const TRACKING_STABLE_MS := 250
 const MAZE_POINTS := [
-	Vector2(180.0, 510.0), Vector2(180.0, 185.0), Vector2(470.0, 185.0),
-	Vector2(470.0, 455.0), Vector2(760.0, 455.0), Vector2(760.0, 185.0),
-	Vector2(1080.0, 185.0),
+	Vector2(155.0, 500.0), Vector2(155.0, 180.0), Vector2(405.0, 180.0),
+	Vector2(590.0, 365.0), Vector2(785.0, 180.0), Vector2(1085.0, 180.0),
 ]
 
 var camera_view: TextureRect
@@ -38,6 +37,9 @@ var wave_switches := 0
 var wave_last_ms := -1
 var spoken_stage := ""
 var collecting := false
+var butterfly_segment := 0
+var butterfly_segment_progress := 0.0
+var butterfly_hand_motion := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -62,6 +64,7 @@ func _process(delta: float) -> void:
 	if target:
 		target.set_process(running and not manually_paused and tracking_ready)
 	if manually_paused:
+		butterfly_hand_motion = Vector2.ZERO
 		tracking_label.visible = true
 		tracking_label.text = "Paused"
 		queue_redraw()
@@ -70,6 +73,7 @@ func _process(delta: float) -> void:
 	if running and not tracking_present:
 		tracking_label.text = "Show your hands inside the frame to continue"
 	if not running or not tracking_present:
+		butterfly_hand_motion = Vector2.ZERO
 		queue_redraw()
 		return
 	if not tracking_ready:
@@ -85,7 +89,7 @@ func _process(delta: float) -> void:
 		_finish_session()
 		return
 	if stage == "butterflies" and target:
-		_update_butterfly(delta)
+		_update_butterfly()
 	if target and not collecting and target.expired():
 		_record_outcome(false)
 		_spawn_target()
@@ -145,6 +149,8 @@ func _on_snapshot_updated(observations: Array) -> void:
 			if old_direction.length_squared() > 0.0:
 				tip_direction = old_direction.normalized()
 			var movement := point - old_point
+			if stage == "butterflies" and movement.length_squared() > butterfly_hand_motion.length_squared():
+				butterfly_hand_motion = movement
 			if movement.length_squared() > 4.0:
 				tip_direction = movement.normalized()
 			var tip := point + tip_direction * 70.0
@@ -238,28 +244,40 @@ func _spawn_target() -> void:
 	)
 	var direction := Vector2(random.randf_range(-1.0, 1.0), random.randf_range(-0.55, 0.55))
 	var speed: float = 0.0 if stage == "seeds" else float(difficulty.speed)
-	var target_radius: float = 52.0 if stage == "butterflies" else float(difficulty.radius)
+	var target_radius: float = 36.0 if stage == "butterflies" else float(difficulty.radius)
 	var target_lifetime: float = 999.0 if stage == "butterflies" else float(difficulty.lifetime)
 	target.configure("seed" if stage == "seeds" else ("butterfly" if stage == "butterflies" else "bubble"), target_radius, speed, direction, target_lifetime)
 	target.z_index = 5
 	add_child(target)
+	if stage == "butterflies":
+		butterfly_segment = 0
+		butterfly_segment_progress = 0.0
+		butterfly_hand_motion = Vector2.ZERO
 
 
-func _update_butterfly(delta: float) -> void:
-	var nearest_hand := Vector2.ZERO
-	var nearest_distance := INF
-	for hand_value in hands.values():
-		var distance: float = target.position.distance_to(hand_value.point)
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_hand = hand_value.point
-	if nearest_distance < 240.0:
-		var desired := nearest_hand - target.position
-		if desired.length_squared() > 4.0:
-			var proposed := target.position + desired.normalized() * 145.0 * delta
-			target.position = Rules.closest_point_on_path(proposed, MAZE_POINTS)
-	if target.position.distance_to(MAZE_POINTS[-1]) < 58.0:
+func _update_butterfly() -> void:
+	if butterfly_segment >= MAZE_POINTS.size() - 1:
 		_complete_collection("maze")
+		return
+	var start: Vector2 = MAZE_POINTS[butterfly_segment]
+	var finish: Vector2 = MAZE_POINTS[butterfly_segment + 1]
+	var segment := finish - start
+	# Incorrect movement is consumed without moving. Matching vertical,
+	# horizontal, or diagonal movement advances along the current corridor.
+	if Rules.movement_matches_path(butterfly_hand_motion, segment):
+		butterfly_segment_progress += minf(butterfly_hand_motion.length() * 1.15, 48.0)
+	butterfly_hand_motion = Vector2.ZERO
+	while butterfly_segment_progress >= segment.length():
+		butterfly_segment_progress -= segment.length()
+		butterfly_segment += 1
+		if butterfly_segment >= MAZE_POINTS.size() - 1:
+			target.position = MAZE_POINTS[-1]
+			_complete_collection("maze")
+			return
+		start = MAZE_POINTS[butterfly_segment]
+		finish = MAZE_POINTS[butterfly_segment + 1]
+		segment = finish - start
+	target.position = start + segment.normalized() * butterfly_segment_progress
 
 
 func _enter_stage(next_stage: String) -> void:
@@ -270,7 +288,7 @@ func _enter_stage(next_stage: String) -> void:
 	var prompts := {
 		"welcome": "Wave to wake the garden",
 		"seeds": "Touch the glowing seeds",
-		"butterflies": "Guide the butterfly from START to the glowing flower",
+		"butterflies": "Move your hand in the path direction to guide the butterfly",
 		"bubbles": "Use your magic pointer to pop the bubbles",
 		"celebration": "Look — the garden is growing!",
 	}
@@ -428,11 +446,17 @@ func _draw() -> void:
 			draw_circle(Vector2(x, y) + Vector2.from_angle(angle) * 13.0, 10.0, flower_color)
 		draw_circle(Vector2(x, y), 8.0, Color("ffe66d"))
 	if stage == "butterflies":
-		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.12, 0.08, 0.24, 0.85), 92.0, true)
-		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.55, 0.9, 0.55, 0.42), 62.0, true)
+		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.12, 0.08, 0.24, 0.9), 130.0, true)
+		draw_polyline(PackedVector2Array(MAZE_POINTS), Color(0.55, 0.9, 0.55, 0.48), 100.0, true)
 		draw_circle(MAZE_POINTS[0], 38.0, Color(0.35, 0.9, 0.55, 0.9))
 		draw_circle(MAZE_POINTS[-1], 45.0, Color(1.0, 0.82, 0.2, 0.9))
 		draw_string(ThemeDB.fallback_font, MAZE_POINTS[0] + Vector2(-38.0, 8.0), "START", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
+		if target and butterfly_segment < MAZE_POINTS.size() - 1:
+			var path_direction: Vector2 = (MAZE_POINTS[butterfly_segment + 1] - MAZE_POINTS[butterfly_segment]).normalized()
+			var arrow_end := target.position + path_direction * 68.0
+			draw_line(target.position, arrow_end, Color("fff06a"), 9.0, true)
+			var arrow_side := path_direction.rotated(PI * 0.5) * 13.0
+			draw_colored_polygon(PackedVector2Array([arrow_end + path_direction * 12.0, arrow_end - path_direction * 18.0 + arrow_side, arrow_end - path_direction * 18.0 - arrow_side]), Color("fff06a"))
 	for hand_value in hands.values():
 		var point: Vector2 = hand_value.point
 		draw_circle(point, 29.0, Color(1.0, 0.92, 0.3, 0.3))
