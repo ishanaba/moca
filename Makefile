@@ -1,4 +1,6 @@
-.PHONY: configure build test tracker camera-smoke compose model-test godot godot-test live table-tennis-live magic-garden-live mediapipe-setup mediapipe-live
+GODOT ?= $(shell command -v godot 2>/dev/null || echo flatpak run org.godotengine.Godot)
+
+.PHONY: configure build test tracker camera-smoke compose model-test godot godot-test live table-tennis-live magic-garden-live mediapipe-setup mediapipe-live 1 2 3
 configure:
 	cmake --preset dev
 build:
@@ -14,13 +16,18 @@ compose:
 model-test:
 	cd tools/models && python -m pytest
 godot:
-	godot --path games/godot
+	$(GODOT) --path games/godot
 godot-test:
-	godot --headless --path games/godot --script res://tests/run_tests.gd
+	$(GODOT) --headless --path games/godot --script res://tests/run_tests.gd
 live: build
 	./scripts/run-live.sh
 table-tennis-live: live
-magic-garden-live: live
+magic-garden-live: build
+	./scripts/run-live.sh $(or $(filter 1 2 3,$(MAKECMDGOALS)),2)
+# Allow the friendly `make magic-garden-live 1` syntax. These goals only carry
+# the selected level to the recipe above.
+1 2 3:
+	@:
 mediapipe-setup:
 	./scripts/setup-mediapipe.sh
 mediapipe-live: build

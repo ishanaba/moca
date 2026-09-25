@@ -16,16 +16,21 @@ godot --path games/godot -- --live=ws://127.0.0.1:8765
 
 The child sees a mirrored live camera feed and uses either YOLO-tracked wrist to
 catch seeds, pop falling magic balls with a pointed wand, and finally guide a
-butterfly through multiple mazes. Each main activity—planting, magic-ball defense,
-and butterfly guidance—lasts 45 seconds. Caught seeds animate into the
+butterfly through multiple mazes. Planting and magic-ball defense each last
+45 seconds; butterfly guidance lasts 75 seconds.
+Caught seeds animate into the
 flower bed, and the UI counts flowers planted and butterflies fed. During the
 second stage, three magic balls fall at once toward planted flowers: wand pops protect the
 garden, while a missed ball visibly spoils and removes one flower. Planting,
 popping, and damage play synthesized effects. Space starts, ends, or restarts
-the session; the on-screen button pauses, R restarts, and Escape exits. Run the camera experience from the repository root with `make
-magic-garden-live`.
+the session; the on-screen button pauses, R restarts, and Escape exits. Run the
+camera experience from the repository root with `make magic-garden-live 1`,
+`make magic-garden-live 2`, or `make magic-garden-live 3`. The levels show
+1/1, 2/3, or 3/5 simultaneous seeds/magic balls respectively; level 2 is the
+default.
 
-Two seeds remain available so both hands can scoop them independently. The
+At normal difficulty, two seeds remain available so both hands can scoop them
+independently. The
 butterfly stage renders wind streaks aligned with each hand's current movement,
 and the magic-ball stage
 renders only pointed wands; only the moving pointed tip pops a ball. Tracking
@@ -46,8 +51,12 @@ during the seed stage.
 ## Test
 
 ```sh
-godot --headless --path games/godot --script res://tests/run_tests.gd
+make godot-test
 ```
+
+Run this from the repository root. `make godot` and `make godot-test` use
+the native `godot` executable when available and otherwise use the Flatpak
+installation. Set `GODOT=/path/to/godot` to select another executable.
 
 ## Native tracking bridge
 

@@ -4,8 +4,20 @@ extends RefCounted
 const INTRO_END := 5.0
 const SEEDS_END := 50.0
 const BUTTERFLIES_END := 95.0
-const BUBBLES_END := 140.0
-const SESSION_END := 145.0
+const BUBBLES_END := 170.0
+const SESSION_END := 175.0
+
+
+static func normalized_difficulty(level: int) -> int:
+	return clampi(level, 1, 3)
+
+
+static func seed_count_for_level(level: int) -> int:
+	return normalized_difficulty(level)
+
+
+static func magic_ball_count_for_level(level: int) -> int:
+	return [1, 3, 5][normalized_difficulty(level) - 1]
 
 
 static func stage_for_elapsed(elapsed: float) -> String:

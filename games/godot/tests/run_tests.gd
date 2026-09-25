@@ -88,12 +88,21 @@ func _test_table_tennis_mapping() -> void:
 
 
 func _test_garden_rules() -> void:
+	_expect(GardenRulesForTest.normalized_difficulty(0) == 1, "garden difficulty should clamp below level 1")
+	_expect(GardenRulesForTest.normalized_difficulty(4) == 3, "garden difficulty should clamp above level 3")
+	_expect(GardenRulesForTest.seed_count_for_level(1) == 1, "level 1 should show one seed")
+	_expect(GardenRulesForTest.seed_count_for_level(2) == 2, "level 2 should preserve two seeds")
+	_expect(GardenRulesForTest.seed_count_for_level(3) == 3, "level 3 should show three seeds")
+	_expect(GardenRulesForTest.magic_ball_count_for_level(1) == 1, "level 1 should show one magic ball")
+	_expect(GardenRulesForTest.magic_ball_count_for_level(2) == 3, "level 2 should preserve three magic balls")
+	_expect(GardenRulesForTest.magic_ball_count_for_level(3) == 5, "level 3 should show five magic balls")
 	_expect(GardenRulesForTest.stage_for_elapsed(0.0) == "welcome", "garden should begin with the welcome")
 	_expect(GardenRulesForTest.stage_for_elapsed(5.0) == "seeds", "seed stage should follow the welcome")
 	_expect(GardenRulesForTest.stage_for_elapsed(50.0) == "bubbles", "magic-ball stage should follow forty-five seconds of planting")
 	_expect(GardenRulesForTest.stage_for_elapsed(95.0) == "butterflies", "butterfly stage should follow forty-five seconds of magic balls")
-	_expect(GardenRulesForTest.stage_for_elapsed(140.0) == "celebration", "garden should celebrate after forty-five seconds of butterfly guidance")
-	_expect(GardenRulesForTest.stage_for_elapsed(145.0) == "complete", "garden should complete after the finale")
+	_expect(GardenRulesForTest.stage_for_elapsed(169.9) == "butterflies", "butterfly guidance should last seventy-five seconds")
+	_expect(GardenRulesForTest.stage_for_elapsed(170.0) == "celebration", "garden should celebrate after seventy-five seconds of butterfly guidance")
+	_expect(GardenRulesForTest.stage_for_elapsed(175.0) == "complete", "garden should complete after the finale")
 	_expect(GardenRulesForTest.segment_hits_circle(Vector2.ZERO, Vector2(100.0, 0.0), Vector2(50.0, 5.0), 10.0), "fast wrist paths should hit crossed targets")
 	var path := [Vector2(0.0, 0.0), Vector2(100.0, 0.0), Vector2(100.0, 100.0)]
 	_expect(GardenRulesForTest.closest_point_on_path(Vector2(45.0, 30.0), path).is_equal_approx(Vector2(45.0, 0.0)), "butterfly guidance should remain inside the maze path")

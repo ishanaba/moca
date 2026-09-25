@@ -49,10 +49,12 @@ var active_maze_path: Array = []
 var planted_flowers: Array[Vector2] = []
 var spoiled_flowers: Array[Dictionary] = []
 var celebration_flowers: Array[Dictionary] = []
+var difficulty_level := 2
 
 
 func _ready() -> void:
 	random.seed = 0x47415244
+	difficulty_level = _difficulty_from_command_line(OS.get_cmdline_user_args())
 	_build_ui()
 	TrackingService.snapshot_updated.connect(_on_snapshot_updated)
 	TrackingService.camera_frame_updated.connect(_on_camera_frame_updated)
@@ -310,11 +312,11 @@ func _spawn_target() -> void:
 	if stage not in ["seeds", "butterflies", "bubbles"]:
 		return
 	if stage == "seeds":
-		_spawn_seed()
-		_spawn_seed()
+		for _index in Rules.seed_count_for_level(difficulty_level):
+			_spawn_seed()
 		return
 	if stage == "bubbles":
-		for index in 3:
+		for index in Rules.magic_ball_count_for_level(difficulty_level):
 			_spawn_magic_ball(float(index) * 0.75)
 		return
 	var difficulty := Rules.difficulty_for_history(outcomes)
@@ -359,6 +361,17 @@ func _spawn_seed() -> void:
 	seed.z_index = 5
 	seed_targets.append(seed)
 	add_child(seed)
+
+
+func _difficulty_from_command_line(arguments: PackedStringArray) -> int:
+	for argument in arguments:
+		if argument.begins_with("--difficulty="):
+			var value := argument.trim_prefix("--difficulty=")
+			if value.is_valid_int():
+				return Rules.normalized_difficulty(value.to_int())
+			push_warning("Invalid difficulty '%s'; using level 2" % value)
+			return 2
+	return 2
 
 
 func _make_maze_path() -> Array:
@@ -532,7 +545,7 @@ func _finish_session() -> void:
 func _show_idle() -> void:
 	instruction_label.text = ""
 	_speak("Welcome to Magic Garden Rescue. Press space to begin the story.")
-	time_label.text = "Timer: 2:25"
+	time_label.text = "Timer: 2:55"
 	_update_counters()
 	pause_button.visible = false
 	replay_button.visible = false

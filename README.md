@@ -71,7 +71,8 @@ one child. A mirrored live camera view is overlaid with seeds, falling magic
 balls, final-stage sequential butterfly mazes, and a growing procedural garden. The UI
 counts flowers planted and butterflies fed. Caught seeds animate into the bed;
 unblocked magic balls spoil and remove flowers, while wand pops protect them.
-Procedural sounds provide immediate feedback. YOLO26n-pose supplies two stable
+Procedural sounds provide immediate feedback. Planting and magic-ball defense
+last 45 seconds each, while butterfly guidance lasts 75 seconds. YOLO26n-pose supplies two stable
 wrist inputs and swept-path collision catches fast touches. Tracking loss keeps
 its warning visible without pausing the session timer.
 
@@ -80,7 +81,9 @@ Dispatcher. Activity prompt text is hidden; statistics and the tracking warning
 remain visible. Butterfly wind streaks rotate with the child's actual hand
 movement direction.
 
-Run it with `make magic-garden-live`. Mouse simulation and the bundled two-hand
+Run it with `make magic-garden-live 1`, `make magic-garden-live 2`, or
+`make magic-garden-live 3` to select easy, normal, or hard difficulty. Level 2
+is used when no level is given. Mouse simulation and the bundled two-hand
 replay support development without a camera. The previous table-tennis
 controller remains in `games/godot/scripts/main.gd` and on its checkpoint branch.
 
